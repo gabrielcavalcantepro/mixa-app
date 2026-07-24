@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="600" viewBox="0 0 480 600">
+  <rect width="480" height="600" fill="#F1ECE1"/>
+  <rect x="16" y="16" width="448" height="568" fill="none" stroke="#1C1B19" stroke-width="1" stroke-opacity="0.25"/>
+  <text x="240" y="300" font-family="Georgia, 'Times New Roman', serif" font-style="italic" font-size="34" fill="#1C1B19" text-anchor="middle" dominant-baseline="middle">Calçado</text>
+  <text x="240" y="340" font-family="Georgia, 'Times New Roman', serif" font-size="13" letter-spacing="2" fill="#1C1B19" fill-opacity="0.5" text-anchor="middle" dominant-baseline="middle">MIXA · IMAGEM PLACEHOLDER</text>
+</svg>
