@@ -2,9 +2,9 @@ import { ColagemLook } from "@/components/mixa/colagem-look";
 import { ordenarPorSlot } from "@/lib/catalogo/ordem-slots";
 import type { LookAprovado } from "@/lib/catalogo/tipos";
 import { Button } from "@/components/ui/button";
-import { trocarLook } from "../_actions/trocar-look";
 
-export function LookDoDiaCard({ look }: { look: LookAprovado }) {
+/** Presentational — hoje-interativo.tsx controla o estado otimista e passa o callback de troca. */
+export function LookDoDiaCard({ look, aoTrocar }: { look: LookAprovado; aoTrocar: () => void }) {
   const pecas = ordenarPorSlot(look.pecas);
 
   return (
@@ -34,11 +34,9 @@ export function LookDoDiaCard({ look }: { look: LookAprovado }) {
         </ul>
       </div>
 
-      <form action={trocarLook}>
-        <Button type="submit" variant="outline" className="w-full">
-          Trocar look
-        </Button>
-      </form>
+      <Button type="button" variant="outline" className="w-full" onClick={aoTrocar}>
+        Trocar look
+      </Button>
     </div>
   );
 }

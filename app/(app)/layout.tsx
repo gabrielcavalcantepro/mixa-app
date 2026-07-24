@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { caminhoDoPasso, proximoPassoOnboarding } from "@/lib/onboarding";
 import { BottomNav } from "@/components/shell/bottom-nav";
+import { TransicaoDeAba } from "@/components/shell/transicao-de-aba";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
@@ -12,7 +13,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex min-h-screen flex-col bg-background pb-16">
-      <main className="flex-1">{children}</main>
+      <main className="flex-1">
+        <TransicaoDeAba>{children}</TransicaoDeAba>
+      </main>
       <BottomNav />
     </div>
   );

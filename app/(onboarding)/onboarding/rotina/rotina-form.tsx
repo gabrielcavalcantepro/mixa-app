@@ -6,6 +6,7 @@ import { derivarMapaSemana } from "./derivar-mapa-semana";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { TiraSemanal } from "@/components/mixa/tira-semanal";
 
 const DIAS = [
   { valor: 0, rotulo: "Dom" },
@@ -16,14 +17,6 @@ const DIAS = [
   { valor: 5, rotulo: "Sex" },
   { valor: 6, rotulo: "Sáb" },
 ];
-
-const ROTULO_OCASIAO: Record<string, string> = {
-  trabalho: "Trabalho",
-  treino: "Treino",
-  casa: "Casa",
-  lazer: "Lazer",
-  evento: "Evento",
-};
 
 function alternarDia(lista: number[], dia: number, marcado: boolean) {
   return marcado ? [...lista, dia] : lista.filter((d) => d !== dia);
@@ -80,16 +73,9 @@ export function RotinaForm() {
       </div>
 
       <div className="rounded-lg border border-border p-3">
-        <p className="mb-2 text-sm font-medium">Sua semana vai ficar assim:</p>
-        <ul className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-muted-foreground">
-          {mapa.map(({ diaSemana, ocasiao }) => (
-            <li key={diaSemana} className="flex justify-between">
-              <span>{DIAS[diaSemana].rotulo}</span>
-              <span>{ROTULO_OCASIAO[ocasiao]}</span>
-            </li>
-          ))}
-        </ul>
-        <p className="mt-2 text-xs text-muted-foreground">Dá pra ajustar dia a dia depois, no Perfil.</p>
+        <p className="mb-3 text-sm font-medium">Sua semana vai ficar assim:</p>
+        <TiraSemanal mapa={Object.fromEntries(mapa.map((d) => [d.diaSemana, d.ocasiao]))} />
+        <p className="mt-3 text-xs text-muted-foreground">Dá pra ajustar dia a dia depois, no Perfil.</p>
       </div>
 
       {estado?.erro && <p className="text-sm text-destructive">{estado.erro}</p>}

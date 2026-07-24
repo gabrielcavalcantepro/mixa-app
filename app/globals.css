@@ -91,13 +91,44 @@
 }
 
 /*
- * Sem tema escuro alternável nesta fase — a marca é uma identidade fixa
- * (editorial, não um app com preferência de tema). O `@custom-variant
- * dark` acima existe só pra neutralizar as classes `dark:` que alguns
- * componentes shadcn trazem por padrão (nunca ativam, pois `.dark` nunca
- * é aplicada) em vez de deixá-las cair no `prefers-color-scheme` padrão
- * do Tailwind.
+ * Escuro = mesma dupla de marca, papéis invertidos (fundo preto, texto
+ * osso) — não é paleta nova. Aplicado via classe `.dark` no `<html>`
+ * (next-themes, `attribute="class"`, ver app/layout.tsx), que é
+ * exatamente o que o `@custom-variant dark` acima já esperava.
  */
+.dark {
+  --background: #1c1b19;
+  --foreground: #f1ece1;
+  --card: #24221f;
+  --card-foreground: #f1ece1;
+  --popover: #24221f;
+  --popover-foreground: #f1ece1;
+  --primary: #f1ece1;
+  --primary-foreground: #1c1b19;
+  --secondary: #2c2a26;
+  --secondary-foreground: #f1ece1;
+  --muted: #2c2a26;
+  --muted-foreground: #a39d8e;
+  --accent: #2c2a26;
+  --accent-foreground: #f1ece1;
+  --destructive: #d68477;
+  --border: rgb(241 236 225 / 14%);
+  --input: rgb(241 236 225 / 18%);
+  --ring: rgb(241 236 225 / 40%);
+  --chart-1: #f1ece1;
+  --chart-2: #c7c0ac;
+  --chart-3: #a39d8e;
+  --chart-4: #6f6a5f;
+  --chart-5: #4a473f;
+  --sidebar: #1c1b19;
+  --sidebar-foreground: #f1ece1;
+  --sidebar-primary: #f1ece1;
+  --sidebar-primary-foreground: #1c1b19;
+  --sidebar-accent: #2c2a26;
+  --sidebar-accent-foreground: #f1ece1;
+  --sidebar-border: rgb(241 236 225 / 14%);
+  --sidebar-ring: rgb(241 236 225 / 40%);
+}
 
 @layer base {
   * {

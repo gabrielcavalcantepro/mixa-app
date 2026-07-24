@@ -30,10 +30,10 @@ criação de funcionalidade nova passa por plan mode, sem essa etapa.
 - **Auth.js v5** (Credentials + JWT), com cadastro real (ao contrário do
   catálogo, que só cria conta via seed).
 - **Tailwind CSS v4 + shadcn/ui** (Base UI, não Radix) — mesmos tokens
-  de cor do catálogo (`#1C1B19` preto / `#F1ECE1` osso). Sem
-  `next-themes` como feature (a lib entra como dependência transitiva do
-  `Toaster` do shadcn, mas nenhum `<ThemeProvider>`/toggle é montado — a
-  identidade é fixa, sem dark mode).
+  de cor do catálogo (`#1C1B19` preto / `#F1ECE1` osso), agora com tema
+  claro/escuro de verdade via **`next-themes`** (entrou inicialmente só
+  como dependência transitiva do `Toaster`, virou feature real depois —
+  ver seção própria "Tema claro/escuro" abaixo).
 - **Zod**, **Vitest** (só lógica pura, sem e2e) — mesma filosofia do
   catálogo.
 - **`web-push`** (VAPID) pra notificação push real. Service worker é um
@@ -235,6 +235,69 @@ SPEC pede — nenhum placeholder de marca resta no código.
   `<image>` SVG-dentro-de-SVG). Todos os 3 usam fundo `#1c1b19` sólido +
   ícone branco centralizado, pra garantir contraste em qualquer tema de
   navegador/OS.
+
+**Logo em UI (não os ícones acima) precisa da variante certa por
+tema**: os SVGs de logo são preto/branco sólido — o preto some sobre
+fundo escuro se não trocar. `components/mixa/logo-marca.tsx` resolve
+isso com CSS puro (`block dark:hidden` / `hidden dark:block`, as duas
+`<img>` sempre no DOM), sem precisar de client component — usado em
+login e no cabeçalho do onboarding. Achado revisando visualmente (não
+óbvio até ver o screenshot em dark): qualquer novo lugar que use um SVG
+de logo direto (não os ícones gerados) precisa do mesmo tratamento.
+
+## Tema claro/escuro (`next-themes`) e UI otimista
+
+Tema: `<ThemeProvider attribute="class" defaultTheme="system"
+enableSystem disableTransitionOnChange>` em `app/layout.tsx` (com
+`suppressHydrationWarning` no `<html>`, exigido pela própria lib —
+o script injetado muda a classe antes da hidratação, discrepância
+esperada). `.dark {}` em `app/globals.css` inverte só os 2 tokens de
+marca (preto/osso trocados de papel), mesma paleta. Preferência manual
+é 100% client (`localStorage`, chave `theme`) — não tem coluna no
+banco de propósito (cosmético, por instalação, sincronizar entre
+aparelhos não foi pedido). Seletor em
+`app/(app)/perfil/_components/seletor-tema.tsx`: 3 opções (Sistema/
+Claro/Escuro, não um toggle binário), com `useSyncExternalStore` pra
+detectar "montou no client" **em vez de** `useEffect`+`setState` — o
+lint do projeto (`react-hooks/set-state-in-effect`) barra isso mesmo
+pra um mount-flag simples, não só pro caso de sincronizar com prop que
+já estava documentado abaixo.
+
+**UI otimista é o mesmo padrão em 3 lugares** — `useOptimistic` (marca
+a escolha na hora) + `useTransition` (roda a Server Action sem
+bloquear): `hoje/_components/hoje-interativo.tsx` (ajuste de ocasião +
+trocar look — motivo de existir: os dois eram `<form>` 100%
+server-driven, sem nenhum estado client, e travavam ~800ms-1.1s até o
+motor de decisão inteiro rodar de novo antes de qualquer pixel mudar),
+`looks/_components/botao-favoritar.tsx` (favoritar) e
+`perfil/_components/rotina-editor.tsx` (tira semanal, upsert por dia
+via `perfil/_actions/atualizar-dia-rotina.ts` — substituiu o antigo
+`atualizar-rotina.ts`/`EstadoRotinaPerfil`, que mandava os 7 dias juntos
+atrás de um botão "Salvar"). Ao adicionar uma nova ação instantânea,
+reusa esse padrão em vez de inventar um 4º jeito.
+
+Medido (não só assumido): o toque marca otimista em ~190-300ms em dev
+não-minificado (bem mais rápido que os ~800-1100ms do round-trip
+completo de antes, mas não os <16ms teóricos de um `useOptimistic`
+puro — parte do delta é overhead de dev mode/Turbopack, não confirmei
+quanto exatamente). De qualquer forma, a tela nunca mais bloqueia
+enquanto isso: o conteúdo antigo fica visível e interativo (com opacity
+reduzida via `isPending`) até o novo chegar.
+
+## Movimento (3 momentos, só esses — ver SPEC/pedido de refinamento)
+
+`tw-animate-css` (utilities) + CSS puro, sem lib de animação nova:
+- Troca de aba: `components/shell/transicao-de-aba.tsx`, `key=
+  {usePathname()}` força remontagem, `animate-in fade-in
+  slide-in-from-bottom-2`. Só entrada é animada (sem `AnimatePresence`
+  nem coreografia de saída) — as abas são rotas de verdade, o React já
+  desmonta a anterior na hora de qualquer forma.
+- Colagem: `components/mixa/colagem-look.tsx`, cada peça com `animate-in
+  fade-in zoom-in-95` + `animationDelay` inline por índice (Tailwind não
+  tem utility estática pra delay calculado dinamicamente) — continua
+  Server Component, zero JS extra, a ordem já vem de `ordenarPorSlot()`.
+- Favoritar: `zoom-in-50` só ao favoritar (não ao desfavoritar, que é a
+  ação neutra), disparado trocando a `key` do ícone pra forçar replay.
 
 ## Convenções de formulário (portadas do catálogo)
 

@@ -43,21 +43,36 @@ export function EstiloQuiz({ perfis }: { perfis: PerfilComReferencia[] }) {
         <input key={id} type="hidden" name="complementares" value={id} />
       ))}
 
+      {/*
+        Dominante é o momento de maior investimento visual do onboarding
+        inteiro — 1 look por card, colagem completa (não cortada),
+        vitrine em vez de checkbox com texto. Complementares (abaixo)
+        ficam deliberadamente mais compactos: é a escolha secundária.
+      */}
       <fieldset className="flex flex-col gap-3">
         <legend className="mb-1 text-sm font-medium">Estilo dominante</legend>
-        <RadioGroup value={dominante} onValueChange={selecionarDominante} className="grid grid-cols-2 gap-3">
+        <RadioGroup value={dominante} onValueChange={selecionarDominante} className="flex flex-col gap-4">
           {perfis.map((perfil) => (
             <label
               key={perfil.id}
               htmlFor={`dominante-${perfil.id}`}
-              className={`flex cursor-pointer flex-col gap-2 rounded-lg border p-2 transition-colors ${
+              className={`flex cursor-pointer flex-col gap-3 rounded-xl border p-3 transition-colors ${
                 dominante === perfil.id ? "border-primary" : "border-border"
               }`}
             >
-              <CartaoPerfil perfil={perfil} />
-              <div className="flex items-center gap-2">
-                <RadioGroupItem value={perfil.id} id={`dominante-${perfil.id}`} />
-                <span className="text-sm">{perfil.nome}</span>
+              {perfil.lookReferencia ? (
+                <ColagemLook pecas={perfil.lookReferencia.pecas} className="aspect-4/5" />
+              ) : (
+                <div className="flex aspect-4/5 items-center justify-center rounded-lg bg-secondary text-xs text-muted-foreground">
+                  Em breve
+                </div>
+              )}
+              <div className="flex items-start justify-between gap-3 px-1">
+                <div>
+                  <p className="font-heading text-2xl italic">{perfil.nome}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{perfil.descricao}</p>
+                </div>
+                <RadioGroupItem value={perfil.id} id={`dominante-${perfil.id}`} className="mt-1.5 shrink-0" />
               </div>
             </label>
           ))}
@@ -82,7 +97,13 @@ export function EstiloQuiz({ perfis }: { perfis: PerfilComReferencia[] }) {
                     marcado ? "border-primary" : "border-border"
                   } ${bloqueado ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
                 >
-                  <CartaoPerfil perfil={perfil} />
+                  {perfil.lookReferencia ? (
+                    <ColagemLook pecas={perfil.lookReferencia.pecas.slice(0, 2)} className="aspect-square" />
+                  ) : (
+                    <div className="flex aspect-square items-center justify-center rounded-lg bg-secondary text-xs text-muted-foreground">
+                      Em breve
+                    </div>
+                  )}
                   <div className="flex items-center gap-2">
                     <Checkbox
                       id={`complementar-${perfil.id}`}
@@ -103,20 +124,5 @@ export function EstiloQuiz({ perfis }: { perfis: PerfilComReferencia[] }) {
         {pending ? "Salvando..." : "Continuar"}
       </Button>
     </form>
-  );
-}
-
-function CartaoPerfil({ perfil }: { perfil: PerfilComReferencia }) {
-  return (
-    <div>
-      {perfil.lookReferencia ? (
-        <ColagemLook pecas={perfil.lookReferencia.pecas.slice(0, 2)} className="aspect-square" />
-      ) : (
-        <div className="flex aspect-square items-center justify-center rounded-lg bg-secondary text-xs text-muted-foreground">
-          Em breve
-        </div>
-      )}
-      <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">{perfil.descricao}</p>
-    </div>
   );
 }

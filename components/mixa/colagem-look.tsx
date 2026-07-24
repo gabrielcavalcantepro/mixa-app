@@ -17,10 +17,14 @@ export function ColagemLook({ pecas, className }: { pecas: PecaDoLook[]; classNa
 
   return (
     <div className={`grid grid-cols-2 gap-1 overflow-hidden rounded-lg bg-secondary ${className ?? ""}`}>
-      {ordenadas.map((peca) => {
+      {ordenadas.map((peca, indice) => {
         const imagem = peca.imagens.find((img) => img.isCapa) ?? peca.imagens[0];
         return (
-          <div key={peca.id} className="relative aspect-4/5 bg-secondary">
+          <div
+            key={peca.id}
+            className="relative aspect-4/5 animate-in fade-in zoom-in-95 bg-secondary duration-400"
+            style={{ animationDelay: `${indice * 90}ms`, animationFillMode: "backwards" }}
+          >
             {imagem && (
               // eslint-disable-next-line @next/next/no-img-element
               <img

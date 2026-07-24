@@ -1,4 +1,3 @@
-import { ajustarHoje } from "../_actions/ajustar-hoje";
 import { OPCOES_AJUSTE_HOJE, type OpcaoAjusteHoje } from "../_lib/opcoes-ajuste";
 
 const ROTULOS: Record<OpcaoAjusteHoje, string> = {
@@ -8,19 +7,21 @@ const ROTULOS: Record<OpcaoAjusteHoje, string> = {
   evento: "Evento",
 };
 
-/**
- * 4 botões nativos, cada um com a Server Action pré-presa via `.bind`
- * (não `name`/`value` — ver comentário em _actions/ajustar-hoje.ts) —
- * sem precisar de estado client.
- */
-export function AjusteHojeBotoes({ ativa }: { ativa: OpcaoAjusteHoje | null }) {
+/** Presentational — hoje-interativo.tsx controla o estado otimista e passa o callback. */
+export function AjusteHojeBotoes({
+  ativa,
+  aoEscolher,
+}: {
+  ativa: OpcaoAjusteHoje | null;
+  aoEscolher: (opcao: OpcaoAjusteHoje) => void;
+}) {
   return (
-    <form className="grid grid-cols-4 gap-2">
+    <div className="grid grid-cols-4 gap-2">
       {OPCOES_AJUSTE_HOJE.map((opcao) => (
         <button
           key={opcao}
-          type="submit"
-          formAction={ajustarHoje.bind(null, opcao)}
+          type="button"
+          onClick={() => aoEscolher(opcao)}
           className={`rounded-lg border px-2 py-2 text-xs transition-colors ${
             ativa === opcao
               ? "border-primary bg-primary text-primary-foreground"
@@ -30,6 +31,6 @@ export function AjusteHojeBotoes({ ativa }: { ativa: OpcaoAjusteHoje | null }) {
           {ROTULOS[opcao]}
         </button>
       ))}
-    </form>
+    </div>
   );
 }

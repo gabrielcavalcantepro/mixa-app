@@ -7,6 +7,7 @@ import { AssinaturaCard } from "./_components/assinatura-card";
 import { NotificacaoForm } from "./_components/notificacao-form";
 import { RotinaEditor } from "./_components/rotina-editor";
 import { EstiloEditor } from "./_components/estilo-editor";
+import { SeletorTema } from "./_components/seletor-tema";
 import { sair } from "./_actions/sair";
 
 export default async function PerfilPage() {
@@ -28,6 +29,11 @@ export default async function PerfilPage() {
       </div>
 
       <AssinaturaCard trialIniciadoEm={usuario.trialIniciadoEm} />
+
+      <section className="flex flex-col gap-3">
+        <h2 className="text-xl">Aparência</h2>
+        <SeletorTema />
+      </section>
 
       <section className="flex flex-col gap-3">
         <h2 className="text-xl">Notificação</h2>
