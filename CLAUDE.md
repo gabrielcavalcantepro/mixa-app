@@ -15,8 +15,17 @@ Ao corrigir um bug ou comportamento que já existe (não ao criar algo
 novo), declare a hipótese da causa antes de mexer em qualquer código,
 investigue essa hipótese primeiro, e só implemente a correção se ela for
 confirmada. Se a investigação não confirmar, não altere nada — relate o
-que encontrou e espere confirmação. Vale só pra alteração/correção;
-criação de funcionalidade nova passa por plan mode, sem essa etapa.
+que encontrou e espere confirmação. Vale só pra alteração/correção.
+
+Criação de funcionalidade nova: implementa direto, sem plano prévio pra
+aprovação e sem pausar no meio pra confirmar decisão técnica — decide e
+segue. Só pausa de verdade se a trava for uma decisão de produto que só
+o usuário pode tomar (não uma escolha de implementação) — nesse caso,
+registra a dúvida no relatório final em vez de interromper no meio do
+trabalho. Isso vale também pra depois de terminar: criação de
+funcionalidade nova não gera nenhum documento de proposta/plano à parte
+pra aprovação posterior — o relatório final (no formato de relatório de
+conclusão já em uso) é a única entrega de texto.
 
 ## Stack
 
@@ -36,6 +45,10 @@ criação de funcionalidade nova passa por plan mode, sem essa etapa.
   ver seção própria "Tema claro/escuro" abaixo).
 - **Zod**, **Vitest** (só lógica pura, sem e2e) — mesma filosofia do
   catálogo.
+- **`motion`** (ex-Framer Motion) — única lib de animação do projeto,
+  trazida na passada 2 (design.md) só pro carrossel de abertura + folha
+  de autenticação (física de mola, Ken Burns contínuo). Ver seção
+  "Movimento" — todo o resto continua CSS puro de propósito.
 - **`web-push`** (VAPID) pra notificação push real. Service worker é um
   **arquivo estático** (`public/sw.js`, sem Serwist/next-pwa) — a spec
   não pede cache de assets/offline, só push + instalação, e evita
@@ -284,9 +297,9 @@ quanto exatamente). De qualquer forma, a tela nunca mais bloqueia
 enquanto isso: o conteúdo antigo fica visível e interativo (com opacity
 reduzida via `isPending`) até o novo chegar.
 
-## Movimento (3 momentos, só esses — ver SPEC/pedido de refinamento)
+## Movimento
 
-`tw-animate-css` (utilities) + CSS puro, sem lib de animação nova:
+**Momentos pontuais (passada 1) — `tw-animate-css` + CSS puro, sem lib**:
 - Troca de aba: `components/shell/transicao-de-aba.tsx`, `key=
   {usePathname()}` força remontagem, `animate-in fade-in
   slide-in-from-bottom-2`. Só entrada é animada (sem `AnimatePresence`
@@ -298,6 +311,85 @@ reduzida via `isPending`) até o novo chegar.
   Server Component, zero JS extra, a ordem já vem de `ordenarPorSlot()`.
 - Favoritar: `zoom-in-50` só ao favoritar (não ao desfavoritar, que é a
   ação neutra), disparado trocando a `key` do ícone pra forçar replay.
+- `components/mixa/entrada-escalonada.tsx`: generaliza a mesma técnica
+  da colagem (fade-in + delay por índice) pra qualquer lista de blocos
+  — usado nos passos do onboarding. Continua Server Component.
+
+**`motion` (passada 2 — design.md, 2026-07-25), única lib de animação do
+projeto**: trazida especificamente pro carrossel de abertura + folha de
+autenticação — física de mola (`type: "spring"`) e o zoom contínuo do
+Ken Burns sincronizado com a barra de progresso não davam pra fazer só
+com CSS sem reimplementar manualmente o que a lib já resolve testada
+(diferente da passada 1, que resolveu 3 momentos pontuais só com
+CSS+hooks nativos — ali bastava, aqui não). Onde usada:
+- `app/(auth)/login/_components/carrossel-abertura.tsx`: `AnimatePresence`
+  pro crossfade entre slides, `motion.img` com `animate={{scale:1.08}}`
+  rodando pela duração inteira do slide (não só na troca) pro Ken Burns,
+  barra de progresso ativa também via `motion.div` (`width: 0% → 100%`).
+- `app/(auth)/login/_components/folha-autenticacao.tsx`: `AnimatePresence`
+  + `motion.div` com `initial={{y:"100%"}}`/`transition:{type:"spring"}`
+  — entra deslizando com mola, `AnimatePresence` cuida da saída
+  invertida sozinha.
+- `app/(onboarding)/onboarding/transicao-de-passo.tsx`: transição entre
+  passos do onboarding — slide horizontal + fade, `mode="wait"` (espera
+  o passo antigo sair antes de entrar o novo, sensação de "avançar" num
+  quiz linear). **Diferente de propósito** da troca de aba acima
+  (`transicao-de-aba.tsx`), que só anima entrada e nunca espera — ali é
+  navegação livre entre 4 abas (esperar pareceria lento), aqui é uma
+  sequência linear (a pausa curta reforça "passo a passo").
+
+## Fluxo de abertura + onboarding unificado (design.md, 2026-07-25)
+
+`/login` deixou de ser só um formulário — agora é a `TelaAbertura`
+(`app/(auth)/login/_components/tela-abertura.tsx`): carrossel Stories
+em loop (`CarrosselAbertura`, 4 imagens placeholder em
+`public/abertura/hero-{1..4}.svg`, texto lorem ipsum — conteúdo real
+ainda não existe) + folha (`FolhaAutenticacao`) que sobe por cima com o
+formulário de entrar OU criar conta, alternável sem fechar a folha.
+
+**"Criar conta" continua sendo o passo 1 do onboarding** (conta → cidade
+→ estilo → rotina, sequência funcional inalterada) — só mudou de
+apresentação. `criarConta`/`ContaForm` moraram em
+`(onboarding)/onboarding/conta/` e foram **realocados** pra
+`app/(auth)/login/_actions/criar-conta.ts` e `_components/conta-form.tsx`
+— a rota `/onboarding/conta` foi removida (não existe mais como
+página; `proximoPassoOnboarding` nunca a usa como destino, já que só é
+alcançável sem sessão nenhuma). `Progresso` continua com as 4 entradas
+("1/4 Conta" incluída) sem nenhuma mudança — ela deriva de
+`pathname`, e como nenhuma página jamais está em `/onboarding/conta`,
+esse passo sempre aparece como concluído, que é exatamente o correto
+(se você chegou em `/onboarding/*`, o passo 1 já aconteceu).
+
+Cidade/Estilo/Rotina compartilham o mesmo template (`onboarding/layout.tsx`
++ `transicao-de-passo.tsx` + `EntradaEscalonada` em cada página) — a
+"tela dividida com imagem embaixo" (`cidade/page.tsx`, reaproveitando
+uma imagem de `public/abertura/`) só entrou onde fazia sentido; Estilo
+não precisou (a vitrine de cada card já é a própria imagem) e Rotina
+também não (passo funcional, forçar imagem ali seria decoração sem
+propósito).
+
+## Barra de navegação + detalhe de look (design.md, 2026-07-25)
+
+`components/shell/bottom-nav.tsx`: pílula flutuante (`rounded-full`,
+sombra, margem da borda da tela via `safe-area-inset-bottom`) — Hoje
+não é mais o 1º item da lista, é um círculo elevado (`-mt-6`, maior,
+`bg-primary` sólido) entre os outros 3 (Looks/Promos/Perfil, que ficam
+no nível da pílula). Com 4 abas ao todo (par, não ímpar), não existe um
+slot matematicamente central — Hoje fica na 2ª posição de 4, que já lê
+como "centro" o bastante por causa do tamanho/cor/elevação, sem
+precisar de 5 slots artificiais só pra simetria perfeita.
+
+Nova rota `app/(app)/looks/[id]/page.tsx` (detalhe de look, não existia
+antes) — `LookCard` (`looks/_components/look-card.tsx`) agora é
+`<Link>` pra lá; o botão de favoritar continua **fora** do `<Link>`
+(irmão posicionado por cima via `absolute`, não dentro), pra tocar no
+coração não disparar navegação. Busca o look por id fazendo
+`listarLooksAprovados({})` e filtrando localmente
+(`buscarLookPorId` em `looks/_queries/listar-looks.ts`) — o cliente do
+catálogo não tem filtro por id; aceitável no volume atual, revisitar se
+o catálogo crescer muito. Ação principal (favoritar) fixa embaixo,
+posicionada **acima** da pílula de navegação (não colada nela, `bottom:
+5.5rem` — as duas ficam visíveis ao mesmo tempo sem se sobrepor).
 
 ## Convenções de formulário (portadas do catálogo)
 

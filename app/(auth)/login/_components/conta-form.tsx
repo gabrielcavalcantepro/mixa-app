@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { criarConta, type EstadoConta } from "./actions";
+import { criarConta, type EstadoConta } from "../_actions/criar-conta";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,7 +13,7 @@ export function ContaForm() {
   );
 
   return (
-    <form action={formAction} className="flex flex-col gap-5">
+    <form action={formAction} className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
         <Label htmlFor="email">E-mail</Label>
         <Input
@@ -27,14 +27,7 @@ export function ContaForm() {
       </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor="senha">Senha</Label>
-        <Input
-          id="senha"
-          name="senha"
-          type="password"
-          required
-          minLength={8}
-          autoComplete="new-password"
-        />
+        <Input id="senha" name="senha" type="password" required minLength={8} autoComplete="new-password" />
       </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor="confirmarSenha">Confirmar senha</Label>

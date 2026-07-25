@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { caminhoDoPasso, proximoPassoOnboarding } from "@/lib/onboarding";
 import { getCatalogoClient } from "@/lib/catalogo/cliente";
+import { EntradaEscalonada } from "@/components/mixa/entrada-escalonada";
 import { EstiloQuiz, type PerfilComReferencia } from "./estilo-quiz";
 
 export default async function OnboardingEstiloPage() {
@@ -25,7 +26,7 @@ export default async function OnboardingEstiloPage() {
   );
 
   return (
-    <div className="flex flex-col gap-6">
+    <EntradaEscalonada className="flex flex-col gap-6">
       <div>
         <h1 className="text-3xl">Qual é o seu estilo?</h1>
         <p className="text-muted-foreground">
@@ -33,6 +34,6 @@ export default async function OnboardingEstiloPage() {
         </p>
       </div>
       <EstiloQuiz perfis={perfisComReferencia} />
-    </div>
+    </EntradaEscalonada>
   );
 }

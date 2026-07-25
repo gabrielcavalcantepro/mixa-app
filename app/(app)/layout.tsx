@@ -12,7 +12,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (passo !== "completo") redirect(caminhoDoPasso(passo));
 
   return (
-    <div className="flex min-h-screen flex-col bg-background pb-16">
+    <div className="flex min-h-screen flex-col bg-background pb-28">
       <main className="flex-1">
         <TransicaoDeAba>{children}</TransicaoDeAba>
       </main>

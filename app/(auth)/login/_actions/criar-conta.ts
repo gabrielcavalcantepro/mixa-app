@@ -23,6 +23,12 @@ export interface EstadoConta {
   valores?: { email?: string };
 }
 
+/**
+ * Continua sendo o mesmo passo 1 do onboarding (conta → cidade → estilo
+ * → rotina) — só mudou de onde é apresentado: antes era a página
+ * `/onboarding/conta`, agora é a folha de autenticação sobre o
+ * carrossel de abertura (ver design.md). A lógica em si não mudou.
+ */
 export async function criarConta(
   _estadoAnterior: EstadoConta | undefined,
   formData: FormData,

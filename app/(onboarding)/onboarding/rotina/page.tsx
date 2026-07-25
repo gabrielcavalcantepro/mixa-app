@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { caminhoDoPasso, proximoPassoOnboarding } from "@/lib/onboarding";
+import { EntradaEscalonada } from "@/components/mixa/entrada-escalonada";
 import { RotinaForm } from "./rotina-form";
 
 export default async function OnboardingRotinaPage() {
@@ -11,7 +12,7 @@ export default async function OnboardingRotinaPage() {
   if (passo !== "rotina") redirect(caminhoDoPasso(passo));
 
   return (
-    <div className="flex flex-col gap-6">
+    <EntradaEscalonada className="flex flex-col gap-6">
       <div>
         <h1 className="text-3xl">Sua rotina semanal</h1>
         <p className="text-muted-foreground">
@@ -19,6 +20,6 @@ export default async function OnboardingRotinaPage() {
         </p>
       </div>
       <RotinaForm />
-    </div>
+    </EntradaEscalonada>
   );
 }

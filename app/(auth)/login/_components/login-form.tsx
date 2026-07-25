@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { autenticar } from "./actions";
+import { autenticar } from "../_actions/entrar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,7 +10,7 @@ export function LoginForm() {
   const [erro, formAction, pending] = useActionState(autenticar, undefined);
 
   return (
-    <form action={formAction} className="flex flex-col gap-5">
+    <form action={formAction} className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
         <Label htmlFor="email">E-mail</Label>
         <Input id="email" name="email" type="email" required autoComplete="email" />

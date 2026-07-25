@@ -1,5 +1,6 @@
 import { LogoMarca } from "@/components/mixa/logo-marca";
 import { Progresso } from "./progresso";
+import { TransicaoDePasso } from "./transicao-de-passo";
 
 export default function OnboardingLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -7,7 +8,7 @@ export default function OnboardingLayout({ children }: { children: React.ReactNo
       <div className="w-full max-w-sm">
         <LogoMarca variante="horizontal" className="mb-6 h-6 w-auto" />
         <Progresso />
-        {children}
+        <TransicaoDePasso>{children}</TransicaoDePasso>
       </div>
     </main>
   );
