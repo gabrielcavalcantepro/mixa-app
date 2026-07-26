@@ -15,6 +15,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { TiraSemanal } from "@/components/mixa/tira-semanal";
+import { EMOJI_PADRAO_POR_OCASIAO } from "@/lib/rotina/emoji-padrao";
+import { mapaSemanalPorCategoria } from "@/lib/rotina/itens-do-dia";
 import type { Ocasiao } from "@/db/schema";
 
 const DIAS = [
@@ -27,8 +29,6 @@ const DIAS = [
   { valor: 6, rotulo: "Sáb" },
 ] as const;
 
-const DIAS_COMPLETO = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
-
 const OCASIOES: [Ocasiao, string][] = [
   ["trabalho", "Trabalho"],
   ["lazer", "Lazer"],
@@ -37,21 +37,22 @@ const OCASIOES: [Ocasiao, string][] = [
   ["evento", "Evento"],
 ];
 
-interface ItemRotina {
+interface ItemRotinaDraft {
   id: string;
   rotulo: string;
+  emoji: string | null;
   ocasiao: Ocasiao;
   dias: number[];
 }
 
 /**
- * Substitui os 2 toggles fixos por itens livres (design.md): a
- * usuária nomeia cada item e escolhe os dias, e por trás cada um
- * mapeia pra uma das 5 ocasiões que já existem. Se um dia já pertence
- * a outro item, tocar nele só pede confirmação (`diaPendente`) — nunca
- * rouba em silêncio — e a troca só é aplicada de fato ao salvar o
- * item (não no toque de confirmação em si), pra "Cancelar" nunca ter
- * efeito colateral nos outros itens.
+ * Itens livres de rotina (design.md, passada 3): nome + emoji opcional
+ * (cai no padrão da categoria se pular) + categoria + dias da semana,
+ * **sem trava nenhuma de conflito** — um dia aceita quantos itens a
+ * usuária quiser, de categorias iguais ou diferentes. A trava que
+ * existia aqui até a passada 2 (tocar num dia já usado por outro item
+ * pedia confirmação) foi removida por completo: não existe mais
+ * "dono" de dia.
  */
 export function RotinaForm() {
   const [estado, formAction, pending] = useActionState<EstadoRotina | undefined, FormData>(
@@ -59,33 +60,29 @@ export function RotinaForm() {
     undefined,
   );
 
-  const [itens, setItens] = useState<ItemRotina[]>([]);
+  const [itens, setItens] = useState<ItemRotinaDraft[]>([]);
   const [painelAberto, setPainelAberto] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [rotuloDraft, setRotuloDraft] = useState("");
+  const [emojiDraft, setEmojiDraft] = useState("");
   const [ocasiaoDraft, setOcasiaoDraft] = useState<Ocasiao>("trabalho");
   const [diasDraft, setDiasDraft] = useState<number[]>([]);
-  const [diaPendente, setDiaPendente] = useState<number | null>(null);
-
-  function donoDoDia(dia: number): ItemRotina | undefined {
-    return itens.find((item) => item.id !== editandoId && item.dias.includes(dia));
-  }
 
   function abrirNovoItem() {
     setEditandoId(null);
     setRotuloDraft("");
+    setEmojiDraft("");
     setOcasiaoDraft("trabalho");
     setDiasDraft([]);
-    setDiaPendente(null);
     setPainelAberto(true);
   }
 
-  function abrirEdicao(item: ItemRotina) {
+  function abrirEdicao(item: ItemRotinaDraft) {
     setEditandoId(item.id);
     setRotuloDraft(item.rotulo);
+    setEmojiDraft(item.emoji ?? "");
     setOcasiaoDraft(item.ocasiao);
     setDiasDraft(item.dias);
-    setDiaPendente(null);
     setPainelAberto(true);
   }
 
@@ -93,20 +90,10 @@ export function RotinaForm() {
     setItens((atual) => atual.filter((item) => item.id !== id));
   }
 
-  function tocarDia(dia: number) {
-    if (diasDraft.includes(dia)) {
-      setDiasDraft((atual) => atual.filter((d) => d !== dia));
-      if (diaPendente === dia) setDiaPendente(null);
-      return;
-    }
-
-    if (donoDoDia(dia) && diaPendente !== dia) {
-      setDiaPendente(dia);
-      return;
-    }
-
-    setDiasDraft((atual) => [...atual, dia].sort((a, b) => a - b));
-    setDiaPendente(null);
+  function alternarDia(dia: number) {
+    setDiasDraft((atual) =>
+      atual.includes(dia) ? atual.filter((d) => d !== dia) : [...atual, dia].sort((a, b) => a - b),
+    );
   }
 
   function salvarItem() {
@@ -114,36 +101,35 @@ export function RotinaForm() {
     if (!rotulo || diasDraft.length === 0) return;
 
     const id = editandoId ?? crypto.randomUUID();
-    const novoItem: ItemRotina = { id, rotulo, ocasiao: ocasiaoDraft, dias: diasDraft };
+    const novoItem: ItemRotinaDraft = {
+      id,
+      rotulo,
+      emoji: emojiDraft.trim() || null,
+      ocasiao: ocasiaoDraft,
+      dias: diasDraft,
+    };
 
-    setItens((atual) => {
-      // Libera os dias reivindicados de qualquer outro item primeiro —
-      // a usuária já confirmou o "roubo" dia a dia (diaPendente acima),
-      // isso só aplica de vez, tudo junto, no momento de salvar.
-      const semOsDiasReivindicados = atual.map((item) =>
-        item.id === id ? item : { ...item, dias: item.dias.filter((d) => !diasDraft.includes(d)) },
-      );
-
-      return editandoId
-        ? semOsDiasReivindicados.map((item) => (item.id === id ? novoItem : item))
-        : [...semOsDiasReivindicados, novoItem];
-    });
-
+    setItens((atual) =>
+      editandoId ? atual.map((item) => (item.id === id ? novoItem : item)) : [...atual, novoItem],
+    );
     setPainelAberto(false);
   }
 
-  const mapa: Record<number, Ocasiao> = {};
-  for (const item of itens) {
-    for (const dia of item.dias) mapa[dia] = item.ocasiao;
-  }
-  const mapaCompleto = DIAS.map(({ valor }) => ({ diaSemana: valor, ocasiao: mapa[valor] ?? "casa" }));
+  const mapaSemanal = mapaSemanalPorCategoria(
+    itens.map((item) => ({ id: item.id, rotulo: item.rotulo, emoji: item.emoji, ocasiao: item.ocasiao, diasSemana: item.dias })),
+  );
+  const itensParaEnviar = itens.map((item) => ({
+    rotulo: item.rotulo,
+    emoji: item.emoji,
+    ocasiao: item.ocasiao,
+    diasSemana: item.dias,
+  }));
 
   const podeSalvarItem = rotuloDraft.trim().length > 0 && diasDraft.length > 0;
-  const donoPendente = diaPendente !== null ? donoDoDia(diaPendente) : undefined;
 
   return (
     <form action={formAction} className="flex flex-col gap-6">
-      <input type="hidden" name="mapa" value={JSON.stringify(mapaCompleto)} />
+      <input type="hidden" name="itens" value={JSON.stringify(itensParaEnviar)} />
 
       <div className="flex flex-col gap-3">
         {itens.length === 0 ? (
@@ -154,14 +140,12 @@ export function RotinaForm() {
           itens.map((item) => (
             <div key={item.id} className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
               <div className="flex flex-col gap-1">
-                <p className="text-sm font-medium">{item.rotulo}</p>
+                <p className="text-sm font-medium">
+                  {item.emoji || EMOJI_PADRAO_POR_OCASIAO[item.ocasiao]} {item.rotulo}
+                </p>
                 <p className="text-xs text-muted-foreground">
                   {OCASIOES.find(([valor]) => valor === item.ocasiao)?.[1]} ·{" "}
-                  {item.dias
-                    .slice()
-                    .sort((a, b) => a - b)
-                    .map((dia) => DIAS[dia].rotulo)
-                    .join(", ")}
+                  {item.dias.map((dia) => DIAS[dia].rotulo).join(", ")}
                 </p>
               </div>
               <div className="flex shrink-0 gap-1">
@@ -186,8 +170,8 @@ export function RotinaForm() {
 
       <div className="rounded-lg border border-border p-3">
         <p className="mb-3 text-sm font-medium">Sua semana vai ficar assim:</p>
-        <TiraSemanal mapa={mapa} />
-        <p className="mt-3 text-xs text-muted-foreground">Dá pra ajustar dia a dia depois, no Perfil.</p>
+        <TiraSemanal mapa={mapaSemanal} />
+        <p className="mt-3 text-xs text-muted-foreground">Dá pra ajustar depois, no Perfil.</p>
       </div>
 
       {estado?.erro && <p className="text-sm text-destructive">{estado.erro}</p>}
@@ -205,15 +189,26 @@ export function RotinaForm() {
           </DialogHeader>
 
           <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="item-rotulo">Nome</Label>
-              <Input
-                id="item-rotulo"
-                value={rotuloDraft}
-                onChange={(evento) => setRotuloDraft(evento.target.value)}
-                placeholder="Ex.: Trabalho, treino, igreja..."
-                autoFocus
-              />
+            <div className="flex gap-3">
+              <div className="flex flex-1 flex-col gap-2">
+                <Label htmlFor="item-rotulo">Nome</Label>
+                <Input
+                  id="item-rotulo"
+                  value={rotuloDraft}
+                  onChange={(evento) => setRotuloDraft(evento.target.value)}
+                  placeholder="Ex.: Trabalho, treino, igreja..."
+                  autoFocus
+                />
+              </div>
+              <div className="flex w-20 flex-col gap-2">
+                <Label htmlFor="item-emoji">Emoji</Label>
+                <Input
+                  id="item-emoji"
+                  value={emojiDraft}
+                  onChange={(evento) => setEmojiDraft(evento.target.value)}
+                  placeholder={EMOJI_PADRAO_POR_OCASIAO[ocasiaoDraft]}
+                />
+              </div>
             </div>
 
             <div className="flex flex-col gap-2">
@@ -239,21 +234,13 @@ export function RotinaForm() {
               <div className="flex flex-wrap gap-2">
                 {DIAS.map((dia) => {
                   const selecionado = diasDraft.includes(dia.valor);
-                  const dono = donoDoDia(dia.valor);
-                  const pendente = diaPendente === dia.valor;
                   return (
                     <button
                       key={dia.valor}
                       type="button"
-                      onClick={() => tocarDia(dia.valor)}
+                      onClick={() => alternarDia(dia.valor)}
                       className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${
-                        selecionado
-                          ? "border-primary bg-primary text-primary-foreground"
-                          : pendente
-                            ? "border-destructive text-destructive"
-                            : dono
-                              ? "border-dashed text-muted-foreground"
-                              : "border-border"
+                        selecionado ? "border-primary bg-primary text-primary-foreground" : "border-border"
                       }`}
                     >
                       {dia.rotulo}
@@ -261,12 +248,6 @@ export function RotinaForm() {
                   );
                 })}
               </div>
-              {donoPendente && diaPendente !== null && (
-                <p className="text-xs text-destructive">
-                  {DIAS_COMPLETO[diaPendente]} já está em &quot;{donoPendente.rotulo}&quot;. Toque de novo pra
-                  mover pra cá.
-                </p>
-              )}
             </div>
           </div>
 

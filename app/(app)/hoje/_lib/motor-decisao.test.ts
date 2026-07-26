@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { escolherLook } from "./motor-decisao";
+import { buscarFamiliaDoLook, escolherLook } from "./motor-decisao";
 import type { LookAprovado } from "@/lib/catalogo/tipos";
 
 function lookFake(overrides: Partial<LookAprovado> & { id: string }): LookAprovado {
@@ -90,5 +90,31 @@ describe("escolherLook", () => {
     });
 
     expect(escolhido?.id).toBe("look-unico");
+  });
+});
+
+describe("buscarFamiliaDoLook", () => {
+  it("look atual não é variante de nada: família é quem tem varianteDeId apontando pra ele", () => {
+    const base = lookFake({ id: "look-base" });
+    const variante = lookFake({ id: "look-variante", varianteDeId: "look-base" });
+    const independente = lookFake({ id: "look-independente" });
+
+    const familia = buscarFamiliaDoLook(base, [base, variante, independente]);
+    expect(familia.map((l) => l.id)).toEqual(["look-variante"]);
+  });
+
+  it("look atual é variante: família inclui a base e os irmãos, nunca ele mesmo", () => {
+    const base = lookFake({ id: "look-base" });
+    const atual = lookFake({ id: "look-atual", varianteDeId: "look-base" });
+    const irmao = lookFake({ id: "look-irmao", varianteDeId: "look-base" });
+    const independente = lookFake({ id: "look-independente" });
+
+    const familia = buscarFamiliaDoLook(atual, [base, atual, irmao, independente]);
+    expect(familia.map((l) => l.id).sort()).toEqual(["look-base", "look-irmao"]);
+  });
+
+  it("sem variante cadastrada, família fica vazia", () => {
+    const unico = lookFake({ id: "look-unico" });
+    expect(buscarFamiliaDoLook(unico, [unico])).toEqual([]);
   });
 });

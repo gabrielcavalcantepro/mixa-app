@@ -1,15 +1,16 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { ocasiaoEnum, rotinaDias } from "@/db/schema";
+import { ocasiaoEnum, rotinaItens } from "@/db/schema";
 import { auth } from "@/lib/auth";
 
-const diaMapaSchema = z.object({
-  diaSemana: z.number().int().min(0).max(6),
+const itemSchema = z.object({
+  rotulo: z.string().trim().min(1).max(60),
+  emoji: z.string().trim().max(8).nullable(),
   ocasiao: z.enum(ocasiaoEnum.enumValues),
+  diasSemana: z.array(z.number().int().min(0).max(6)).min(1),
 });
 
 export interface EstadoRotina {
@@ -17,11 +18,9 @@ export interface EstadoRotina {
 }
 
 /**
- * A tela monta os itens livres (rótulo + dias) num mapa de 7 dias
- * antes de submeter — o servidor só recebe/valida o mapa final, igual
- * à versão antiga baseada em 2 toggles (design.md: não muda o schema
- * de rotina_dia, só a forma de entrada). Rótulo livre da usuária não é
- * persistido, só a ocasião que ele mapeia.
+ * Cada item vira 1 linha em `rotina_item` — sem achatar num mapa de 7
+ * dias como antes: agora um dia pode ter vários itens (design.md), não
+ * dá mais pra representar isso como "1 ocasião por dia".
  */
 export async function salvarRotina(
   _estadoAnterior: EstadoRotina | undefined,
@@ -33,22 +32,27 @@ export async function salvarRotina(
 
   let bruto: unknown;
   try {
-    bruto = JSON.parse(String(formData.get("mapa") ?? ""));
+    bruto = JSON.parse(String(formData.get("itens") ?? ""));
   } catch {
     return { erro: "Não foi possível salvar sua rotina — tente de novo." };
   }
 
-  const parsed = z.array(diaMapaSchema).length(7).safeParse(bruto);
+  const parsed = z.array(itemSchema).safeParse(bruto);
   if (!parsed.success) {
     return { erro: "Não foi possível salvar sua rotina — tente de novo." };
   }
 
-  await db.transaction(async (tx) => {
-    await tx.delete(rotinaDias).where(eq(rotinaDias.usuarioId, usuarioId));
-    await tx.insert(rotinaDias).values(
-      parsed.data.map((dia) => ({ usuarioId, diaSemana: dia.diaSemana, ocasiao: dia.ocasiao })),
+  if (parsed.data.length > 0) {
+    await db.insert(rotinaItens).values(
+      parsed.data.map((item) => ({
+        usuarioId,
+        rotulo: item.rotulo,
+        emoji: item.emoji,
+        ocasiao: item.ocasiao,
+        diasSemana: item.diasSemana,
+      })),
     );
-  });
+  }
 
   redirect("/hoje");
 }

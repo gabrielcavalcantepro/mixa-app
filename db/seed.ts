@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 import { db } from "./index";
-import { rotinaDias, usuarios } from "./schema";
+import { rotinaItens, usuarios } from "./schema";
 
 /**
  * Cria 1 conta já com onboarding completo — atalho pra pular
@@ -32,14 +32,16 @@ async function seed() {
     .onConflictDoUpdate({ target: usuarios.email, set: { senhaHash } })
     .returning();
 
-  await db.delete(rotinaDias).where(eq(rotinaDias.usuarioId, usuario.id));
-  await db.insert(rotinaDias).values(
-    [0, 1, 2, 3, 4, 5, 6].map((diaSemana) => ({
-      usuarioId: usuario.id,
-      diaSemana,
-      ocasiao: diaSemana === 0 || diaSemana === 6 ? ("casa" as const) : ("trabalho" as const),
-    })),
-  );
+  // Fins de semana ficam sem item de propósito — caem no fallback
+  // "casa" do motor de decisão, mesmo comportamento de antes.
+  await db.delete(rotinaItens).where(eq(rotinaItens.usuarioId, usuario.id));
+  await db.insert(rotinaItens).values({
+    usuarioId: usuario.id,
+    rotulo: "Trabalho",
+    emoji: null,
+    ocasiao: "trabalho",
+    diasSemana: [1, 2, 3, 4, 5],
+  });
 
   console.log(`Seed concluído. Login: ${email} / ${senha}`);
 }

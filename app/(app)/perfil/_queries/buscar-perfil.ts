@@ -1,14 +1,20 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { rotinaDias, usuarioPerfisComplementares, type Ocasiao } from "@/db/schema";
+import { rotinaItens, usuarioPerfisComplementares } from "@/db/schema";
 import { getCatalogoClient } from "@/lib/catalogo/cliente";
+import type { ItemRotina } from "@/lib/rotina/tipos";
 
-export async function buscarRotinaAtual(usuarioId: string): Promise<Record<number, Ocasiao>> {
-  const linhas = await db
-    .select({ diaSemana: rotinaDias.diaSemana, ocasiao: rotinaDias.ocasiao })
-    .from(rotinaDias)
-    .where(eq(rotinaDias.usuarioId, usuarioId));
-  return Object.fromEntries(linhas.map((linha) => [linha.diaSemana, linha.ocasiao]));
+export async function buscarItensRotina(usuarioId: string): Promise<ItemRotina[]> {
+  return db
+    .select({
+      id: rotinaItens.id,
+      rotulo: rotinaItens.rotulo,
+      emoji: rotinaItens.emoji,
+      ocasiao: rotinaItens.ocasiao,
+      diasSemana: rotinaItens.diasSemana,
+    })
+    .from(rotinaItens)
+    .where(eq(rotinaItens.usuarioId, usuarioId));
 }
 
 export async function buscarComplementaresAtuais(usuarioId: string): Promise<string[]> {

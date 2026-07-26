@@ -113,18 +113,27 @@ Banco `mixa_app`, sem nenhuma FK pro catálogo — `lookId`/
   `notificacaoHorario`, `trialIniciadoEm`, `tutorialInstalacaoVistoEm`).
   Sem campo `nome` — a spec só pede e-mail/senha.
 - **`usuario_perfil_complementar`**: até 2 por usuária.
-- **`rotina_dia`**: `(usuarioId, diaSemana 0-6, ocasiao)` — `diaSemana`
-  segue `Date.getDay()` (0 = domingo). 7 linhas por usuária.
-- **`ajuste_diario`**: `(usuarioId, data, ocasiao)` — "hoje eu vou...",
-  só vale pro dia marcado.
-- **`favorito`**, **`look_exibido`** (histórico pro motor não repetir),
-  **`clima_cache`** (cidade+dia), **`push_subscription`**,
-  **`notificacao_enviada`** (evita reenviar 2x no mesmo dia).
+- **`rotina_item`**: `(id, usuarioId, rotulo, emoji nullable, ocasiao,
+  diasSemana int[])` — item permanente da rotina. **Não é mais 1 linha
+  por dia**: `diasSemana` é array, e nada impede 2 itens (de categorias
+  iguais ou diferentes) compartilharem o mesmo dia — ver "Rotina + Hoje
+  — modelo de múltiplos itens" abaixo pro histórico de por que isso
+  mudou.
+- **`rotina_item_avulso`**: `(id, usuarioId, data, rotulo, emoji
+  nullable, ocasiao)` — "só hoje", ligado a uma data específica (não
+  dia da semana), nunca vira `rotina_item`.
+- **`rotina_item_oculto`**: `(rotinaItemId, data)`, PK composta — puro
+  marcador "esse item fixo está escondido nessa data", sem apagar a
+  recorrência dele.
+- **`favorito`**, **`look_exibido`** (histórico pro motor não repetir —
+  ganhou coluna `ocasiao`, ver seção do motor abaixo), **`clima_cache`**
+  (cidade+dia), **`push_subscription`**, **`notificacao_enviada`**
+  (evita reenviar 2x no mesmo dia).
 
 **Onboarding completo é derivado, não uma flag**:
 `lib/onboarding.ts#proximoPassoOnboarding` — sem `cidade` → passo
-cidade; sem `perfilDominanteId` → passo estilo; sem linha em
-`rotina_dia` → passo rotina; senão completo. Usado por `/` (redirect
+cidade; sem `perfilDominanteId` → passo estilo; sem nenhuma linha em
+`rotina_item` → passo rotina; senão completo. Usado por `/` (redirect
 raiz), `(app)/layout.tsx` (gate) e cada `page.tsx` de onboarding (pra
 empurrar de volta quem já terminou e volta numa URL antiga).
 
@@ -174,29 +183,79 @@ Regra de conversão temperatura → peso: `<15°C` pesada, `15-25°C`
 meia-estação, `>25°C` leve (simplificação assumida, sem validação real
 de estilista).
 
+## Rotina compartilhada (`lib/rotina/`)
+
+Único pedaço de lógica de rotina que é genuinamente compartilhado entre
+3 fatias (Hoje, Perfil, onboarding) — por isso mora em `lib/`, não
+numa fatia específica (mesma régua de `lib/clima/`/`lib/catalogo/`). O
+que cada fatia faz com esses dados continua duplicado por tela
+(formulário, Server Action, validação) — só os **tipos** e a
+**lógica pura de junção/agrupamento** vivem aqui:
+
+- `tipos.ts`: `ItemRotina` (permanente), `ItemAvulso` ("só hoje"),
+  `ItemResolvido` (um item já resolvido pro dia, com `origem: "fixo" |
+  "avulso"`), `CategoriaDoDia`.
+- `emoji-padrao.ts`: `EMOJI_PADRAO_POR_OCASIAO` (💼 trabalho, 🏋️
+  treino, 🏠 casa, 🎉 evento, ☕ lazer) + `emojiResolvido()` — emoji
+  nunca fica em branco (design.md).
+- `itens-do-dia.ts` (puro, testado): `itensDoDia` (junta fixos ativos
+  + avulsos de hoje, já removendo os ocultados) → `agruparPorCategoria`
+  (ordem fixa) → `categoriasDoDia` (as duas + fallback "casa" se o dia
+  não tiver item nenhum) — usado pelo motor de decisão de Hoje.
+  `mapaSemanalPorCategoria` é a versão pra preview: dado só os itens
+  permanentes (sem avulso/oculto, que são conceitos do dia corrente,
+  não da rotina fixa), devolve `Record<diaSemana, Ocasiao[]>` pra
+  `TiraSemanal`.
+
 ## Motor de decisão (`app/(app)/hoje/_lib/`, `_queries/`, `_actions/`)
 
-Só a fatia de Hoje usa — mora lá, não em `lib/`.
+Só a fatia de Hoje usa — mora lá, não em `lib/` (exceto a parte
+genuinamente compartilhada com Perfil/onboarding, que foi pra
+`lib/rotina/` — ver seção própria abaixo). **1 cartão por categoria
+distinta do dia, não 1 por dia** (design.md, passada 3) — ver "Rotina +
+Hoje" abaixo pro histórico completo dessa mudança de modelo.
 
-1. `escolher-ocasiao-do-dia.ts`: ajuste de hoje > rotina do dia > "casa".
-2. `motor-decisao.ts#buscarCandidatos`: filtra o catálogo por
-   ocasião+clima+estilo (dominante OU complementar — dominante só
-   desempata a ordenação depois, não restringe o filtro).
-3. `motor-decisao.ts#escolherLook` (pura, testada): recebe
-   "camadas de exclusão" em ordem (mais restritiva primeiro) — a
-   primeira camada que não esvaziar tudo vence; se todas esvaziarem,
-   cai pro pool completo (repetir é melhor que não mostrar nada).
-   Desempate: perfil dominante > cápsula mais recente > id.
-4. `_queries/look-do-dia.ts#obterLookDoDia` (usado pela renderização
-   normal): estável entre reloads — reaproveita o look já registrado
-   hoje se ele ainda bate no critério atual; só escolhe de novo se não
-   há nada hoje ainda, **ou** se o critério mudou (ex.: "hoje eu
-   vou..." muda a ocasião e o look antigo deixa de aparecer nos
-   candidatos frescos — reseleciona sozinho, sem lógica especial no
-   `_actions/ajustar-hoje.ts`).
-5. `_actions/trocar-look.ts`: mesmo filtro, exclui só o que já foi
-   mostrado **hoje** (a "sessão" do produto = dia corrente, não cookie
-   de navegador).
+1. `lib/rotina/itens-do-dia.ts#categoriasDoDia`: junta itens fixos
+   ativos hoje (menos os ocultados só hoje) + avulsos de hoje, agrupa
+   por categoria distinta (ordem fixa: trabalho/lazer/casa/treino/
+   evento), cai em `[{ocasiao: "casa", itens: []}]` se o dia não tiver
+   item nenhum. Pura, testada.
+2. `_queries/contexto.ts#montarCriteriosDoDia` devolve **um array** de
+   `CriteriosDoDia` (1 por categoria) — clima e perfil são iguais em
+   todos, só `ocasiao`/`itens` mudam por entrada.
+3. `motor-decisao.ts#buscarCandidatos`: igual antes, filtra o catálogo
+   por ocasião+clima+estilo (dominante OU complementar) — chamado 1x
+   por categoria do dia agora, não 1x pro dia inteiro.
+4. `motor-decisao.ts#escolherLook` (pura, testada): não mudou —
+   "camadas de exclusão" em ordem, cai pro pool completo se todas
+   esvaziarem. Desempate: perfil dominante > cápsula mais recente > id.
+5. `motor-decisao.ts#buscarFamiliaDoLook` (pura, testada, nova): dado o
+   look atual, devolve a "família" de variantes — a base dele (ele
+   mesmo, se não for variante de nada; ou o que ele referencia, via
+   `LookAprovado.varianteDeId`, se for) mais todo look que compartilha
+   essa base, sempre excluindo o próprio look atual. Usado só por
+   "trocar look", nunca pela escolha inicial do dia.
+6. `_queries/look-do-dia.ts#obterLooksDoDia` (usado pela renderização
+   normal): 1 cartão por categoria, cada um estável entre reloads
+   (reaproveita o look já registrado hoje **pra aquela categoria
+   especificamente** — por isso `look_exibido` ganhou uma coluna
+   `ocasiao`, sem ela não dava pra distinguir "já mostrado hoje" por
+   cartão) — só escolhe de novo se não há nada ainda pra aquele cartão,
+   ou se o critério mudou.
+7. `_actions/trocar-look.ts` recebe `ocasiao` (qual cartão trocar — não
+   existe mais "o" cartão) e busca família primeiro
+   (`buscarFamiliaDoLook`); sem família, cai pro pool normal da
+   categoria, excluindo só o que já foi mostrado **hoje pra essa
+   categoria**; se esgotar, repete (limite de curadoria do catálogo,
+   não bug).
+8. `_actions/gerenciar-rotina-hoje.ts` + `_components/
+   ajustar-hoje-dialog.tsx`: substituem o antigo `ajustar-hoje.ts`/
+   `opcoes-ajuste.ts`/`ajuste-hoje-botoes.tsx` (4 botões fixos,
+   apagados). Unifica "hoje eu vou..." com o padrão de adicionar item —
+   `adicionarItemHoje` grava em `rotina_item` (recorrência "semanal",
+   só o dia de hoje) ou `rotina_item_avulso` (recorrência "hoje", só
+   essa data), e `alternarItemOcultoHoje` liga/desliga uma linha em
+   `rotina_item_oculto` sem tocar na recorrência do item.
 
 ## PWA e push
 
@@ -462,13 +521,14 @@ cinza, sem precisar editar código:
 ## Onboarding — passada 3 (design.md, 2026-07-26)
 
 Ajustes pontuais em Cidade/Estilo (a passada 2 tinha deixado 2 coisas
-erradas/incompletas) + o título do modal de rotina. **Rotina em si e a
-aba Hoje não mudaram nesta passada** — o design.md pediu uma mudança
-de modelo maior ali (item de rotina com múltiplas categorias por dia +
-Hoje mostrando 1 cartão por categoria), mas isso ficou sujeito a
-confirmação antes de mexer no schema/motor de decisão (ver relatório
-correspondente) — não é regressão nem esquecimento, é decisão
-consciente de escopo.
+erradas/incompletas) + o título do modal de rotina. A mudança de
+modelo maior (item de rotina com múltiplas categorias por dia + Hoje
+com 1 cartão por categoria) — que aqui só teve o título do modal
+ajustado — foi implementada na mesma passada, só que **depois** de um
+relatório de mapeamento aprovado explicitamente antes de tocar em
+schema/motor de decisão (convenção "investigar antes de alterar", já
+que reformulava algo construído e funcionando). Ver "Rotina + Hoje —
+modelo de múltiplos itens" logo abaixo pro resultado completo.
 
 - **Cidade — imagem 100% do espaço restante**: a versão da passada 2
   usava uma altura fixa (`h-[48vh]`), que sobrava uma faixa de fundo
@@ -526,6 +586,103 @@ consciente de escopo.
   `components/ui/dialog.tsx` continua menor — `text-base font-medium`
   — pra não afetar outro modal que apareça no futuro sem pedir esse
   peso).
+
+## Rotina + Hoje — modelo de múltiplos itens (design.md, 2026-07-26)
+
+Mudança de modelo de dados de verdade, não só visual — a única desta
+passada (design.md limitou explicitamente a isso, catálogo/look/peça/
+cápsula continuam intocados). Antes: **1 dia = 1 ocasião** (schema
+`rotina_dia`/`ajuste_diario`, PK composta forçando exatamente 1 linha
+por dia). Agora: **1 dia = vários itens, cada um com sua categoria** —
+trabalho, treino, escola do filho, compromisso, tudo convivendo no
+mesmo dia, sem exclusão. Ver seções "Dado do app", "Rotina
+compartilhada" e "Motor de decisão" acima pro shape final; aqui vai o
+que mudou tela por tela.
+
+**Onboarding/rotina**: a trava de conflito da passada 2 ("já está em
+X, toque pra mover pra cá") foi removida por completo — tocar num dia
+já usado por outro item não faz mais nada de especial, os dois
+convivem. Ganhou campo de emoji opcional por item (cai no padrão da
+categoria se pular — `lib/rotina/emoji-padrao.ts`). `salvarRotina`
+deixou de achatar os itens num mapa de 7 dias antes de submeter (não
+dá mais, 2 itens podem cair no mesmo dia) — manda a lista de itens
+direto (`{rotulo, emoji, ocasiao, diasSemana}[]`, JSON num hidden
+input), 1 `INSERT` por item em `rotina_item`.
+
+**Perfil** (`_components/rotina-editor.tsx`): mesmo padrão de itens
+livres do onboarding, **duplicado** de propósito (convenção do
+projeto — ver `_actions/gerenciar-item-rotina.ts`), com uma diferença:
+aqui cada ação já persiste na hora (`useOptimistic` + Server Action
+por toque, sem botão "Salvar"), porque é edição de uma rotina que já
+existe, não a montagem inicial num fluxo de várias telas. Substitui o
+antigo `atualizarDiaRotina` (upsert por dia, preso a uma PK que não
+existe mais).
+
+**Hoje**: `page.tsx` chama `obterLooksDoDia` (não mais `obterLookDoDia`)
+e renderiza 1 `LookDoDiaCard` por entrada do array — cada cartão mostra
+a categoria + os nomes/emoji de todos os itens daquele dia que caem
+nela (`"🏋️ Crossfit · Musculação"`), e tem seu próprio botão "Trocar
+look" (`trocarLook(ocasiao)` agora leva parâmetro — não existe mais "o"
+cartão). `hoje-interativo.tsx` não usa `useOptimistic` pro conteúdo dos
+cartões — trocar de categoria pode fazer uma categoria **nova**
+aparecer (item recém-adicionado), que precisa de um look escolhido no
+servidor, e isso não dá pra fabricar otimisticamente no client; só
+`useTransition` marca "carregando" e `revalidatePath` traz o estado
+real.
+
+**"Hoje eu vou..." unificado** (`_actions/gerenciar-rotina-hoje.ts` +
+`_components/ajustar-hoje-dialog.tsx`, substituem por completo os 4
+botões fixos que existiam): o painel "Ajustar hoje" oferece adicionar
+item com escolha de recorrência — "Toda [dia da semana atual]" grava
+`rotina_item` (permanente, só com o dia de hoje marcado) ou "Só hoje"
+grava `rotina_item_avulso` (nunca vira rotina fixa). O mesmo painel
+lista os itens ativos hoje com botão pra **esconder só hoje** (itens
+fixos, ícone de olho — grava em `rotina_item_oculto`, não mexe na
+recorrência) ou **remover** (avulsos, ícone de lixeira — já eram só de
+hoje mesmo). Itens escondidos aparecem numa 2ª lista ("Escondidos só
+hoje") com botão de desfazer.
+
+**Trocar look prefere variante — família, não só pai/filho direto**:
+`motor-decisao.ts#buscarFamiliaDoLook` trata "base do look atual +
+todo look que compartilha essa base" como família (não só o
+pai/filho imediato — um look B variante de A e um look C também
+variante de A são família entre si, mesmo que B e C nunca se
+referenciem diretamente). `trocarLook` tenta a família primeiro
+(excluindo o que já foi mostrado hoje **pra aquela categoria**); sem
+família, cai pro pool normal da categoria; se esgotar, repete — limite
+de curadoria do catálogo (poucas variantes cadastradas ainda), não
+bug. Os fixtures mock atuais (`lib/catalogo/fixtures/looks.ts`) têm
+todo `varianteDeId: null` — testar isso localmente em modo mock mostra
+sempre o fallback (pool normal), não a preferência por família; pra ver
+a família de verdade em ação precisa de `CATALOGO_API_MODE=http`
+contra um catálogo com variantes cadastradas.
+
+**`TiraSemanal` — formato por emoji, não texto** (`components/mixa/
+tira-semanal.tsx`, usado por Perfil e pelo preview do onboarding): cada
+bloco de dia mostra os emojis das categorias distintas daquele dia,
+lado a lado (até 3), cortando com um discreto "+N" se sobrar mais —
+trocou a abreviação em texto (`"Trab"`, `"Trein"`) que existia antes.
+Perfil e onboarding só conhecem a rotina permanente aqui (sem
+avulso/oculto — `mapaSemanalPorCategoria` em `lib/rotina/
+itens-do-dia.ts` só olha `rotina_item`), já que avulso/oculto são
+conceitos do dia corrente, específicos de Hoje.
+
+**Migration em 2 passos, não 1**: `drizzle-kit generate` pede
+confirmação interativa (terminal) quando uma passada tem tabela
+dropada E criada ao mesmo tempo (tentando adivinhar se é rename) — sem
+TTY disponível, isso travava. Solução: gerar em 2 passadas separadas
+(`0001_drop_rotina_dia_ajuste_diario.sql` só com os drops de
+`rotina_dia`/`ajuste_diario` + a coluna nova em `look_exibido`, depois
+`0002_add_rotina_item_tables.sql` só com os creates das 3 tabelas
+novas) — cada passada sozinha não tem ambiguidade nenhuma pra
+perguntar. `look_exibido` tinha linhas de teste de sessões anteriores
+sem `ocasiao` (coluna nova é `NOT NULL`) — truncada antes de migrar,
+histórico de exibição é descartável, não dado de conta.
+
+**Pendência de conteúdo, não bloqueante** (já assim no design.md): o
+texto do push ("Seu look do dia chegou", singular) pode não fazer mais
+sentido com vários cartões por dia — não ajustado ainda, aguardando
+prioridade.
 
 ## Barra de navegação + detalhe de look (design.md, 2026-07-25)
 
@@ -653,22 +810,33 @@ npm run dev
 2. Crie a conta (e-mail/senha) — isso não conta mais como um passo do
    onboarding, é só a folha de autenticação. Você cai direto em
    **Cidade** (1º de 3 pontos no topo, sem número/logo/barra): digite
-   parte do nome da cidade, **selecione uma sugestão da lista**
-   (digitar sem selecionar não libera "Continuar") e repare na imagem
-   de apoio de borda a borda abaixo do formulário. Em **Estilo** (2º
-   ponto), veja a grade de 2 colunas com imagem própria por perfil
-   (não colagem de peça) tanto no dominante quanto nos complementares.
-   Em **Rotina** (3º ponto), toque "Adicionar item", dê um nome livre
-   (ex.: "Trabalho"), escolha uma categoria e os dias — repita criando
-   um 2º item que dispute um dia já usado pelo 1º pra ver o aviso de
-   conflito (2 toques no mesmo dia pra confirmar a troca) — e veja o
-   preview da semana (tira de 7 dias) atualizar.
-3. Cai em **Hoje** com um look real do modo mock, batendo
-   clima+ocasião+estilo. Teste "Trocar look" e os botões "hoje eu
-   vou..." (o look muda de acordo).
+   parte do nome da cidade (ex.: "For") e veja **várias cidades reais**
+   sugeridas (Fortaleza/CE, Formosa/GO...) — selecionar é obrigatório
+   pra habilitar "Continuar" — repare na imagem de apoio preenchendo
+   exatamente o espaço restante da tela, sem sobra nem corte. Em
+   **Estilo** (2º ponto), veja a grade de 2 colunas com imagem própria
+   por perfil, os títulos "Estilo dominante"/"Complementares" bem mais
+   fortes que o corpo de texto, com subtítulo explicativo embaixo de
+   cada um, e nenhum nome de estilo vazando do cartão. Em **Rotina**
+   (3º ponto), toque "Adicionar item", dê um nome livre (ex.:
+   "Crossfit"), um emoji opcional, uma categoria e os dias — crie um 2º
+   item (ex.: "Musculação") escolhendo **o mesmo dia** do 1º: os dois
+   convivem sem aviso nenhum de conflito — e veja a tira semanal
+   mostrar os emojis das 2 categorias lado a lado naquele dia.
+3. Cai em **Hoje** com 1 cartão por categoria distinta do dia (se você
+   criou Crossfit+Musculação em Treino no mesmo dia, é só 1 cartão de
+   Treino mostrando os 2 nomes juntos). Teste "Trocar look" de um
+   cartão. Toque "Ajustar hoje": adicione um item avulso escolhendo
+   "Só hoje" (ex.: "Dentista") e veja um cartão novo aparecer pra
+   categoria dele; depois esconda um item fixo (ícone de olho) e
+   confirme que o cartão daquela categoria muda (ou some, se não
+   sobrar mais nenhum item nela) — volte no painel e toque "mostrar de
+   novo" pra desfazer, sem ter perdido a recorrência do item.
 4. Navegue **Looks** (filtre por ocasião/clima, favorite um look),
-   **Promos** (shell) e **Perfil** (edite rotina/estilo, veja a
-   contagem do trial).
+   **Promos** (shell) e **Perfil**: edite rotina (mesmo padrão de itens
+   livres de cima, cada toque já salva — sem botão "Salvar") e estilo,
+   veja a tira semanal no mesmo formato de emoji, e a contagem do
+   trial.
 5. Em Perfil ou no card de instalação de Hoje, clique "Ativar
    notificações" (aceite a permissão do navegador) e depois "enviar
    teste" (ou `POST /api/push/teste` com a sessão logada) — a

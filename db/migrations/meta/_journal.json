@@ -8,6 +8,20 @@
       "when": 1784890560356,
       "tag": "0000_unknown_major_mapleleaf",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1785089947498,
+      "tag": "0001_drop_rotina_dia_ajuste_diario",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785089977913,
+      "tag": "0002_add_rotina_item_tables",
+      "breakpoints": true
     }
   ]
 }

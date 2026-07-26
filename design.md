@@ -172,8 +172,18 @@ existir conflito nenhum a resolver, os dois convivem.
 de um dia fora do padrão) deixa de ser um mecanismo à parte — vira o
 mesmo fluxo de "adicionar item", só que com escolha de recorrência:
 "toda [dia da semana]" (entra na rotina fixa) ou "só hoje" (vale uma
-vez, some depois). Um compromisso avulso (dentista, por exemplo) usa
-a opção "só hoje" e nunca vira rotina permanente.
+vez, some depois, ligado a uma data específica, não a um dia da
+semana). Um compromisso avulso (dentista, por exemplo) usa a opção
+"só hoje" e nunca vira rotina permanente.
+
+"Só hoje" também cobre o caso inverso: esconder um item fixo só
+naquele dia específico, sem apagar a recorrência dele (ex.: "hoje não
+vou treinar" não cancela o treino de toda semana, só o de hoje).
+
+Essa mudança de modelo vale igualmente pro editor de rotina que já
+existe em Perfil (a "tira semanal tocável") — é a mesma fonte de dado
+que o onboarding, não dá pra deixar um no modelo antigo enquanto o
+outro usa o novo.
 
 Isso toca o modelo de dados que a aba Hoje já usa (hoje é "dia → uma
 ocasião"; passa a ser "dia → um ou mais itens, cada um com sua
@@ -209,6 +219,11 @@ catálogo por ocasião, mais rico isso fica sozinho, sem mexer em
 código.
 
 Dia sem nenhum item cai em "Casa" por padrão, como já é hoje.
+
+**Tira semanal compacta** (usada no preview do onboarding e no editor
+de Perfil): cada bloco de dia mostra os emojis das categorias
+distintas daquele dia, lado a lado, pequenos — não texto, não
+contagem sozinha. Se não couber tudo, corta com um "+N" discreto.
 
 Pendência de conteúdo, não bloqueante: o texto da notificação push
 ("seu look do dia chegou", no singular) pode não fazer mais sentido

@@ -2,12 +2,15 @@ import { getCatalogoClient } from "@/lib/catalogo/cliente";
 import type { LookAprovado } from "@/lib/catalogo/tipos";
 import type { Ocasiao } from "@/db/schema";
 import type { PesoClima } from "@/lib/clima/tipos";
+import type { ItemResolvido } from "@/lib/rotina/tipos";
 
+/** 1 por categoria distinta presente no dia — Hoje monta 1 cartão por item destes (design.md). */
 export interface CriteriosDoDia {
   ocasiao: Ocasiao;
   clima: PesoClima;
   perfilDominanteId: string;
   perfisComplementaresIds: string[];
+  itens: ItemResolvido[];
 }
 
 /** Busca candidatos no catálogo (clima+ocasião+estilo) e ordena com preferência pro perfil dominante. */
@@ -61,4 +64,20 @@ export function escolherLook(input: {
   });
 
   return ordenados[0];
+}
+
+/**
+ * Família de variantes do look atual (design.md: "trate como família,
+ * não só pai/filho direto") — a base dele (ele mesmo, se não for
+ * variante de nada; ou o que ele referencia, se for) e todo look que
+ * compartilha essa base, sempre excluindo o próprio `lookAtual`
+ * (trocar por ele mesmo não é troca). Usado só por "trocar look" — a
+ * escolha inicial do dia (`obterLooksDoDia`) não dá preferência a
+ * variante nenhuma, só quando a usuária pede outra opção.
+ */
+export function buscarFamiliaDoLook(lookAtual: LookAprovado, candidatos: LookAprovado[]): LookAprovado[] {
+  const baseId = lookAtual.varianteDeId ?? lookAtual.id;
+  return candidatos.filter(
+    (look) => look.id !== lookAtual.id && (look.id === baseId || look.varianteDeId === baseId),
+  );
 }

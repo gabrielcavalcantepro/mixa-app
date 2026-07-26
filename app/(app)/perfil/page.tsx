@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { usuarioAutenticado } from "@/lib/auth";
 import { AtivarNotificacoes } from "@/components/mixa/ativar-notificacoes";
 import { Button } from "@/components/ui/button";
-import { buscarComplementaresAtuais, buscarPerfisDeEstilo, buscarRotinaAtual } from "./_queries/buscar-perfil";
+import { buscarComplementaresAtuais, buscarItensRotina, buscarPerfisDeEstilo } from "./_queries/buscar-perfil";
 import { AssinaturaCard } from "./_components/assinatura-card";
 import { NotificacaoForm } from "./_components/notificacao-form";
 import { RotinaEditor } from "./_components/rotina-editor";
@@ -14,8 +14,8 @@ export default async function PerfilPage() {
   const usuario = await usuarioAutenticado();
   if (!usuario) redirect("/login");
 
-  const [rotinaAtual, complementaresAtuais, perfis] = await Promise.all([
-    buscarRotinaAtual(usuario.id),
+  const [itensRotina, complementaresAtuais, perfis] = await Promise.all([
+    buscarItensRotina(usuario.id),
     buscarComplementaresAtuais(usuario.id),
     buscarPerfisDeEstilo(),
   ]);
@@ -43,7 +43,7 @@ export default async function PerfilPage() {
 
       <section className="flex flex-col gap-3">
         <h2 className="text-xl">Rotina semanal</h2>
-        <RotinaEditor rotinaAtual={rotinaAtual} />
+        <RotinaEditor itens={itensRotina} />
       </section>
 
       <section className="flex flex-col gap-3">

@@ -1,37 +1,25 @@
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { ajustesDiarios, rotinaDias, usuarioPerfisComplementares, type Usuario } from "@/db/schema";
+import { usuarioPerfisComplementares, type Usuario } from "@/db/schema";
 import { getWeatherClient } from "@/lib/clima/open-weather";
 import { dataDeHojeISO } from "@/lib/data";
-import { escolherOcasiaoDoDia } from "../_lib/escolher-ocasiao-do-dia";
+import { buscarCategoriasDoDia } from "./itens-rotina";
 import type { CriteriosDoDia } from "../_lib/motor-decisao";
 
 /**
- * Junta clima + ocasião efetiva + estilo da usuária num único critério
- * pro motor de decisão. `usuario` já vem com cidade/perfilDominanteId
+ * Junta clima + categorias do dia (1 ou mais, cada uma com seus itens)
+ * + estilo da usuária num critério por categoria pro motor de decisão
+ * — 1 `CriteriosDoDia` por cartão que Hoje vai mostrar, não 1 só pro
+ * dia inteiro (design.md: "dia → um ou mais itens, cada um com sua
+ * categoria"). `usuario` já vem com cidade/perfilDominanteId
  * garantidos — (app)/layout.tsx só deixa chegar aqui com onboarding
  * completo.
  */
-export async function montarCriteriosDoDia(usuario: Usuario): Promise<CriteriosDoDia> {
+export async function montarCriteriosDoDia(usuario: Usuario): Promise<CriteriosDoDia[]> {
   const dataHoje = dataDeHojeISO();
   const diaSemana = new Date().getDay();
 
-  const [ajuste] = await db
-    .select({ ocasiao: ajustesDiarios.ocasiao })
-    .from(ajustesDiarios)
-    .where(and(eq(ajustesDiarios.usuarioId, usuario.id), eq(ajustesDiarios.data, dataHoje)))
-    .limit(1);
-
-  const [rotina] = await db
-    .select({ ocasiao: rotinaDias.ocasiao })
-    .from(rotinaDias)
-    .where(and(eq(rotinaDias.usuarioId, usuario.id), eq(rotinaDias.diaSemana, diaSemana)))
-    .limit(1);
-
-  const ocasiao = escolherOcasiaoDoDia({
-    ajusteDeHoje: ajuste?.ocasiao ?? null,
-    ocasiaoDaRotina: rotina?.ocasiao ?? null,
-  });
+  const categorias = await buscarCategoriasDoDia(usuario.id, diaSemana, dataHoje);
 
   const complementares = await db
     .select({ perfilEstiloId: usuarioPerfisComplementares.perfilEstiloId })
@@ -45,10 +33,11 @@ export async function montarCriteriosDoDia(usuario: Usuario): Promise<CriteriosD
     data: dataHoje,
   });
 
-  return {
-    ocasiao,
+  return categorias.map((categoria) => ({
+    ocasiao: categoria.ocasiao,
     clima: clima.pesoClima,
     perfilDominanteId: usuario.perfilDominanteId!,
     perfisComplementaresIds: complementares.map((c) => c.perfilEstiloId),
-  };
+    itens: categoria.itens,
+  }));
 }

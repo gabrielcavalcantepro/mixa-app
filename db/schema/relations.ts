@@ -1,8 +1,9 @@
 import { relations } from "drizzle-orm";
 import { usuarios } from "./usuario";
 import { usuarioPerfisComplementares } from "./usuario-perfil-complementar";
-import { rotinaDias } from "./rotina-dia";
-import { ajustesDiarios } from "./ajuste-diario";
+import { rotinaItens } from "./rotina-item";
+import { rotinaItensAvulsos } from "./rotina-item-avulso";
+import { rotinaItensOcultos } from "./rotina-item-oculto";
 import { favoritos } from "./favorito";
 import { looksExibidos } from "./look-exibido";
 import { pushSubscriptions } from "./push-subscription";
@@ -10,8 +11,8 @@ import { notificacoesEnviadas } from "./notificacao-enviada";
 
 export const usuariosRelations = relations(usuarios, ({ many }) => ({
   perfisComplementares: many(usuarioPerfisComplementares),
-  rotinaDias: many(rotinaDias),
-  ajustesDiarios: many(ajustesDiarios),
+  rotinaItens: many(rotinaItens),
+  rotinaItensAvulsos: many(rotinaItensAvulsos),
   favoritos: many(favoritos),
   looksExibidos: many(looksExibidos),
   pushSubscriptions: many(pushSubscriptions),
@@ -28,12 +29,17 @@ export const usuarioPerfisComplementaresRelations = relations(
   }),
 );
 
-export const rotinaDiasRelations = relations(rotinaDias, ({ one }) => ({
-  usuario: one(usuarios, { fields: [rotinaDias.usuarioId], references: [usuarios.id] }),
+export const rotinaItensRelations = relations(rotinaItens, ({ one, many }) => ({
+  usuario: one(usuarios, { fields: [rotinaItens.usuarioId], references: [usuarios.id] }),
+  ocultacoes: many(rotinaItensOcultos),
 }));
 
-export const ajustesDiariosRelations = relations(ajustesDiarios, ({ one }) => ({
-  usuario: one(usuarios, { fields: [ajustesDiarios.usuarioId], references: [usuarios.id] }),
+export const rotinaItensAvulsosRelations = relations(rotinaItensAvulsos, ({ one }) => ({
+  usuario: one(usuarios, { fields: [rotinaItensAvulsos.usuarioId], references: [usuarios.id] }),
+}));
+
+export const rotinaItensOcultosRelations = relations(rotinaItensOcultos, ({ one }) => ({
+  item: one(rotinaItens, { fields: [rotinaItensOcultos.rotinaItemId], references: [rotinaItens.id] }),
 }));
 
 export const favoritosRelations = relations(favoritos, ({ one }) => ({
