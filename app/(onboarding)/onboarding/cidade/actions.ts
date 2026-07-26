@@ -6,11 +6,11 @@ import { z } from "zod";
 import { db } from "@/db";
 import { usuarios } from "@/db/schema";
 import { auth } from "@/lib/auth";
+import { getWeatherClient } from "@/lib/clima/open-weather";
 
 const cidadeSchema = z.object({
-  cidade: z.string().trim().min(2, "Selecione uma cidade na lista de sugestões."),
-  lat: z.coerce.number(),
-  lon: z.coerce.number(),
+  cidade: z.string().trim().min(1, "Selecione uma cidade na lista de sugestões."),
+  uf: z.string().trim().length(2, "Selecione uma cidade na lista de sugestões."),
 });
 
 export interface EstadoCidade {
@@ -19,10 +19,10 @@ export interface EstadoCidade {
 }
 
 /**
- * Lat/lon já vêm resolvidos do autocomplete (a usuária selecionou uma
- * sugestão, não digitou livre) — sem geocodificar de novo aqui, ao
- * contrário da versão anterior. Isso também elimina o caso "cidade
- * digitada geocodifica diferente da que apareceu na sugestão".
+ * O autocomplete agora vem da lista real de municípios do IBGE (só
+ * nome+UF, sem coordenada) — por isso volta a existir uma geocodificação
+ * no submit, 1x só, pra resolver lat/lon do município selecionado antes
+ * de gravar (necessário pro clima do dia depois).
  */
 export async function salvarCidade(
   _estadoAnterior: EstadoCidade | undefined,
@@ -34,8 +34,7 @@ export async function salvarCidade(
   const valoresBrutos = { cidade: String(formData.get("cidade") ?? "") };
   const parsed = cidadeSchema.safeParse({
     cidade: formData.get("cidade"),
-    lat: formData.get("lat"),
-    lon: formData.get("lon"),
+    uf: formData.get("uf"),
   });
   if (!parsed.success) {
     return {
@@ -44,12 +43,20 @@ export async function salvarCidade(
     };
   }
 
+  const coordenada = await getWeatherClient().geocodificarMunicipio(parsed.data.cidade, parsed.data.uf);
+  if (!coordenada) {
+    return {
+      erro: "Não conseguimos localizar essa cidade — tente selecionar outra sugestão.",
+      valores: valoresBrutos,
+    };
+  }
+
   await db
     .update(usuarios)
     .set({
-      cidade: parsed.data.cidade,
-      cidadeLat: String(parsed.data.lat),
-      cidadeLon: String(parsed.data.lon),
+      cidade: `${parsed.data.cidade}/${parsed.data.uf}`,
+      cidadeLat: String(coordenada.lat),
+      cidadeLon: String(coordenada.lon),
       atualizadoEm: new Date(),
     })
     .where(eq(usuarios.id, session.user.id));

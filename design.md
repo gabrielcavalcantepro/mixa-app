@@ -3,8 +3,10 @@
 ## Contexto e objetivo
 
 Refinamento visual do app: sair de "funcional mas amador" pra "premium,
-parece que já tem muitos usuários". Não muda modelo de dados nem a
-lógica do motor de decisão — só a camada visual e de interação.
+parece que já tem muitos usuários". A maior parte é só camada visual e
+de interação — as exceções, com mudança real de modelo de dados, estão
+marcadas explicitamente nas seções "Rotina" e "Hoje — guarda-roupa
+diário".
 
 Cores e tipografia são fixas, não fazem parte desta discussão:
 - Preto `#1C1B19` / Osso `#F1ECE1` — únicas cores, papéis invertidos
@@ -97,37 +99,123 @@ passo, corrige de forma geral, não só onde foi citado abaixo.
 
 ### Cidade
 
-A imagem de apoio preenche a largura inteira da tela e cerca de
-metade da altura, encostada nas bordas — não um cartão menor com
-respiro ao redor. Ela ocupa o espaço que hoje fica em branco embaixo
-do formulário.
+A imagem de apoio preenche **100% da largura e 100% do espaço restante
+da tela** abaixo do formulário — sem nenhuma faixa de fundo sobrando
+antes do rodapé. Zero espaço vazio entre o fim da imagem e a borda da
+tela.
 
-O campo de cidade precisa de sugestão conforme a usuária digita (ex.:
-digitar "Fort" já sugere "Fortaleza/CE"), e ela **precisa selecionar**
-uma das sugestões pra avançar — não aceita texto livre sem seleção.
-Evita erro de digitação chegando na API de clima depois.
+**Autocomplete é busca de verdade, não eco do que foi digitado.** O
+texto da usuária funciona como **filtro** contra uma lista real de
+cidades brasileiras — digitar "For" tem que sugerir várias cidades
+que começam com isso ("Formosa/MG", "Fortaleza/CE", etc.), não repetir
+de volta o que ela já escreveu. Formato da sugestão: `Cidade/UF`.
+Ordena com o casamento mais próximo do que foi digitado primeiro
+(prefixo bate antes de ocorrência no meio do nome). A usuária **precisa
+selecionar** uma sugestão da lista pra avançar — não aceita texto livre
+sem seleção, pra nunca chegar cidade errada na API de clima depois.
+
+Fonte de dado: API de localidades do IBGE
+(`servicodados.ibge.gov.br/api/v1/localidades/municipios`) — gratuita,
+sem chave, retorna todos os ~5.570 municípios do Brasil com nome e UF.
+Busca isso uma vez (não em toda tecla digitada) e mantém localmente
+pra filtrar rápido.
 
 ### Estilo
 
 Cada opção de estilo usa uma imagem própria (retangular, vertical —
 ver "Ativos de imagem" acima), não a colagem de peças do catálogo.
 Layout em grade de 2 colunas (2 opções por linha), não 1 por linha.
+Nenhum texto pode vazar pra fora do cartão — se o nome do estilo for
+longo (ex.: "Descontraída/casual-chic"), o cartão acomoda a quebra de
+linha sem estourar a borda nem desalinhar o cartão vizinho.
+
+"Estilo dominante" e "Complementares (opcional, até 2)" são títulos de
+seção — precisam ser visivelmente maiores/mais fortes que o corpo de
+texto ao redor, não do mesmo peso. Isso ainda não foi aplicado na
+rodada anterior, corrige de fato desta vez.
+
+Cada um dos dois ganha um subtítulo curto explicando o conceito, já
+que a usuária pode ser 100% leiga no assunto:
+- Estilo dominante: "É o que mais te representa no dia a dia — a base
+  da maioria dos looks sugeridos pra você."
+- Complementares: "Toques de outros estilos que também combinam com
+  você, usados com menos frequência que o dominante."
 
 ### Rotina
 
-Troca os 2 toggles fixos ("Trabalha fora de casa?" / "Treina?") por
-um padrão de adicionar item de rotina livremente: a usuária cria
-quantos itens quiser (rótulo dela — trabalho, treino, igreja,
-encontro com amigas, o que for — e os dias da semana daquele item).
-O resumo da semana se monta a partir do que ela adicionou, não de 2
-categorias fixas.
+O padrão de adicionar item de rotina livremente (rótulo próprio +
+categoria + dias da semana) está certo, mantém. O título do modal
+"Novo item da rotina" precisa ter o mesmo peso visual dos outros
+títulos do onboarding — hoje está pequeno demais, mesmo problema de
+hierarquia da etapa de estilo.
 
-Por trás, cada item continua mapeando pra uma das 5 ocasiões que já
-existem no sistema (trabalho/lazer/casa/treino/evento) — não muda o
-schema de `rotina_dia`, só a forma de entrada. Se dois itens
-disputarem o mesmo dia, isso precisa ficar visível e resolvido na
-tela pra usuária — nunca um sobrescrevendo o outro em silêncio, do
-jeito que acontece hoje.
+**Categoria**: cada item pertence a **exatamente 1** categoria (das 5
+que já existem: trabalho/lazer/casa/treino/evento) — não é seleção
+múltipla. Várias categorias podem compartilhar itens diferentes (ex.:
+"Crossfit" e "Musculação" os dois em Treino), mas um item nunca tem
+mais de uma categoria.
+
+**Emoji**: campo opcional na criação do item. Se a usuária pular, usa
+um emoji padrão por categoria (💼 trabalho, 🏋️ treino, 🏠 casa, 🎉
+evento, ☕ lazer) — nunca fica sem cara. Quem quiser personalizar,
+troca livremente.
+
+**Correção de modelo, não só de tela**: um dia pode pertencer a
+**vários** itens ao mesmo tempo — trabalho, treino, escola do filho,
+compromisso, tudo no mesmo dia, sem exclusão. Isso é como a vida real
+funciona pra maioria das pessoas, e o app tratar isso como "escolha
+só 1" está errado. Remove por completo a trava atual que impede
+selecionar um dia já usado por outro item ("mover pra cá") — não deve
+existir conflito nenhum a resolver, os dois convivem.
+
+**Unificação do ajuste pontual**: o "hoje eu vou..." (ajuste manual
+de um dia fora do padrão) deixa de ser um mecanismo à parte — vira o
+mesmo fluxo de "adicionar item", só que com escolha de recorrência:
+"toda [dia da semana]" (entra na rotina fixa) ou "só hoje" (vale uma
+vez, some depois). Um compromisso avulso (dentista, por exemplo) usa
+a opção "só hoje" e nunca vira rotina permanente.
+
+Isso toca o modelo de dados que a aba Hoje já usa (hoje é "dia → uma
+ocasião"; passa a ser "dia → um ou mais itens, cada um com sua
+categoria"), então antes de mudar o schema, mapeia tudo que lê esse
+dado partindo do pressuposto antigo — principalmente o motor de
+decisão do look do dia — e confirma o que precisa se adaptar antes de
+implementar. Ver seção "Hoje — guarda-roupa diário" abaixo pra saber
+exatamente o que o motor precisa passar a fazer.
+
+## Hoje — guarda-roupa diário
+
+A aba Hoje mostra **1 cartão de look por categoria distinta presente
+no dia**, não 1 por item de rotina. Exemplo: numa segunda-feira com
+os itens Crossfit (Treino), Musculação (Treino), Empresa (Trabalho),
+Palestra (Trabalho) e Casa (Casa) — só existem 3 categorias diferentes
+naquele dia, então aparecem **3 cartões**: um pra Treino, um pra
+Trabalho, um pra Casa. Nunca 5.
+
+Cada cartão mostra, junto do look, os nomes (+ emoji) de todos os
+itens daquela categoria naquele dia — no exemplo, o cartão de Treino
+mostra "Crossfit" e "Musculação" juntos, o de Trabalho mostra "Empresa"
+e "Palestra" juntos.
+
+**"Trocar look" prefere variante, não look aleatório.** Isso resolve
+o problema de "não quero ir pra Musculação com a mesma roupa que usei
+no Crossfit hoje de manhã": ao trocar, o motor busca primeiro uma
+variante cadastrada do look atual (peça-chave trocada, mesmo look
+"pai"); se não existir variante, cai pra outro look independente da
+mesma categoria; se não existir nem isso, repete o mesmo look — isso
+é limite de curadoria do catálogo (poucas variantes cadastradas pra
+aquela ocasião ainda), não bug do app. Quanto mais variante existir no
+catálogo por ocasião, mais rico isso fica sozinho, sem mexer em
+código.
+
+Dia sem nenhum item cai em "Casa" por padrão, como já é hoje.
+
+Pendência de conteúdo, não bloqueante: o texto da notificação push
+("seu look do dia chegou", no singular) pode não fazer mais sentido
+com vários cartões por dia — ajusta quando chegar nessa parte, não
+precisa agora.
+
+
 
 ## Barra de navegação inferior
 
@@ -179,6 +267,8 @@ editar rotina.
 
 ## Fora de escopo nesta passada
 
-Sem mudança de modelo de dados, sem mudança na lógica do motor de
-decisão, sem mudança de stack. Conteúdo real dos textos do carrossel
-de abertura fica pendente — lorem ipsum por enquanto.
+Sem mudança de stack. A mudança de modelo de dados e do motor de
+decisão está limitada ao que está descrito nas seções "Rotina" e
+"Hoje — guarda-roupa diário" acima — nada além disso (catálogo, look,
+peça, cápsula continuam intocados). Conteúdo real dos textos do
+carrossel de abertura fica pendente — lorem ipsum por enquanto.

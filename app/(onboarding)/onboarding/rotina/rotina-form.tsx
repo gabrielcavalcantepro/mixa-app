@@ -198,7 +198,9 @@ export function RotinaForm() {
       <Dialog open={painelAberto} onOpenChange={setPainelAberto}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editandoId ? "Editar item" : "Novo item da rotina"}</DialogTitle>
+            <DialogTitle className="text-xl font-semibold">
+              {editandoId ? "Editar item" : "Novo item da rotina"}
+            </DialogTitle>
             <DialogDescription>Dê um nome livre e escolha os dias da semana.</DialogDescription>
           </DialogHeader>
 

@@ -2,18 +2,18 @@
 
 import { useActionState, useRef, useState, useTransition } from "react";
 import { salvarCidade, type EstadoCidade } from "./actions";
-import { buscarCidadesAction } from "./_actions/buscar-cidades";
+import { buscarCidadesAction, type SugestaoCidade } from "./_actions/buscar-cidades";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { SugestaoCidade } from "@/lib/clima/tipos";
 
 /**
  * Autocomplete com seleção obrigatória (design.md): o campo visível
- * (`texto`) é livre, mas o que vai pro servidor (`cidade`/`lat`/`lon`,
- * hidden inputs) só é preenchido ao tocar numa sugestão — digitar sem
- * selecionar não habilita o botão. Evita erro de digitação chegando na
- * API de clima depois.
+ * (`texto`) é livre, mas o que vai pro servidor (`cidade`/`uf`, hidden
+ * inputs) só é preenchido ao tocar numa sugestão — digitar sem
+ * selecionar não habilita o botão. Sugestões vêm da lista real de
+ * municípios do IBGE (`buscarCidadesAction`), filtrada por prefixo —
+ * não é mais eco do texto digitado.
  */
 export function CidadeForm() {
   const [estado, formAction, pending] = useActionState<EstadoCidade | undefined, FormData>(
@@ -65,9 +65,8 @@ export function CidadeForm() {
           value={texto}
           onChange={(evento) => aoDigitar(evento.target.value)}
         />
-        <input type="hidden" name="cidade" value={selecionada?.label ?? ""} />
-        <input type="hidden" name="lat" value={selecionada?.lat ?? ""} />
-        <input type="hidden" name="lon" value={selecionada?.lon ?? ""} />
+        <input type="hidden" name="cidade" value={selecionada?.nome ?? ""} />
+        <input type="hidden" name="uf" value={selecionada?.uf ?? ""} />
 
         {sugestoes.length > 0 && (
           <ul className="absolute top-full z-10 mt-1 w-full overflow-hidden rounded-lg border border-border bg-popover shadow-lg">

@@ -19,6 +19,7 @@ export function TransicaoDePasso({ children }: { children: React.ReactNode }) {
     <AnimatePresence mode="wait">
       <motion.div
         key={pathname}
+        className="flex min-h-0 flex-1 flex-col"
         initial={{ opacity: 0, x: 24 }}
         animate={{ opacity: 1, x: 0 }}
         exit={{ opacity: 0, x: -24 }}

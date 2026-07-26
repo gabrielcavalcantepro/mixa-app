@@ -48,8 +48,11 @@ export function EstiloQuiz({ perfis }: { perfis: PerfilComImagem[] }) {
         2 colunas — a diferença entre os 2 é só qual seção e o tipo de
         controle (rádio vs. checkbox), não mais um layout maior/menor.
       */}
-      <fieldset className="flex flex-col gap-3">
-        <legend className="mb-1 text-sm font-medium">Estilo dominante</legend>
+      <fieldset className="flex flex-col">
+        <legend className="font-heading text-xl font-semibold">Estilo dominante</legend>
+        <p className="mt-1 mb-4 text-sm text-muted-foreground">
+          É o que mais te representa no dia a dia — a base da maioria dos looks sugeridos pra você.
+        </p>
         <RadioGroup value={dominante} onValueChange={selecionarDominante} className="grid grid-cols-2 gap-3">
           {perfis.map((perfil) => (
             <CartaoPerfil
@@ -63,10 +66,14 @@ export function EstiloQuiz({ perfis }: { perfis: PerfilComImagem[] }) {
         </RadioGroup>
       </fieldset>
 
-      <fieldset className="flex flex-col gap-3">
-        <legend className="mb-1 text-sm font-medium">
-          Complementares <span className="font-normal text-muted-foreground">(opcional, até 2)</span>
+      <fieldset className="flex flex-col">
+        <legend className="font-heading text-xl font-semibold">
+          Complementares <span className="text-base font-normal text-muted-foreground">(opcional, até 2)</span>
         </legend>
+        <p className="mt-1 mb-4 text-sm text-muted-foreground">
+          Toques de outros estilos que também combinam com você, usados com menos frequência que o
+          dominante.
+        </p>
         <div className="grid grid-cols-2 gap-3">
           {perfis
             .filter((perfil) => perfil.id !== dominante)
@@ -118,7 +125,7 @@ function CartaoPerfil({
   return (
     <label
       htmlFor={htmlFor}
-      className={`flex flex-col gap-2 rounded-xl border p-2 transition-colors ${
+      className={`flex min-w-0 flex-col gap-2 rounded-xl border p-2 transition-colors ${
         selecionado ? "border-primary" : "border-border"
       } ${bloqueado ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
     >
@@ -133,9 +140,11 @@ function CartaoPerfil({
         )}
         <div className="absolute top-2 right-2 rounded-full bg-background/90 p-0.5 shadow-sm">{controle}</div>
       </div>
-      <div className="px-1 pb-1">
-        <p className="font-heading text-lg italic">{perfil.nome}</p>
-        {perfil.descricao && <p className="mt-0.5 text-xs text-muted-foreground">{perfil.descricao}</p>}
+      <div className="min-w-0 px-1 pb-1">
+        <p className="font-heading text-lg leading-tight break-words italic">{perfil.nome}</p>
+        {perfil.descricao && (
+          <p className="mt-0.5 text-xs break-words text-muted-foreground">{perfil.descricao}</p>
+        )}
       </div>
     </label>
   );

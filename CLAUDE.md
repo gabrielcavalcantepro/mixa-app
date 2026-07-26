@@ -394,21 +394,11 @@ quase tudo dentro desse template mudou:
   (não sobra nenhum uso do componente — ver seção "Marca" acima).
 - **Cidade** (`onboarding/cidade/`): campo de cidade agora é
   autocomplete com seleção obrigatória — digitar sem escolher uma
-  sugestão da lista não habilita "Continuar" (`cidade-form.tsx`, hidden
-  inputs `cidade`/`lat`/`lon` só preenchidos ao tocar numa sugestão).
-  Busca via `_actions/buscar-cidades.ts` (Server Action chamada direto
-  do client, debounce de 300ms) → `OpenWeatherClient#buscarCidades`
-  (novo método em `lib/clima/open-weather.ts`, até 5 resultados, rótulo
-  `Cidade/Estado`). Sem `OPENWEATHER_API_KEY`, devolve 1 sugestão fake
-  ecoando o texto digitado — não bloqueia testar o fluxo local sem
-  chave, mesma filosofia do resto do cliente de clima. Como lat/lon já
-  vêm resolvidos da sugestão selecionada, `salvarCidade`
-  (`actions.ts`) não geocodifica mais no submit — o método antigo
-  `geocodificar()` (single-shot, só usado ali) foi removido do
-  `OpenWeatherClient`, junto do tipo `Coordenada` que só ele usava.
-  Abaixo do formulário, imagem de apoio ocupa a largura inteira da tela
-  e ~48% da altura, encostada nas bordas (antes era um cartão menor
-  com `rounded-2xl` e respiro ao redor).
+  sugestão da lista não habilita "Continuar". Abaixo do formulário,
+  imagem de apoio ocupa a largura inteira da tela (antes era um cartão
+  menor com `rounded-2xl` e respiro ao redor). **A fonte de dado do
+  autocomplete e a altura exata da imagem mudaram de novo na passada
+  3 — ver seção própria abaixo, não fica descrito aqui.**
 - **Estilo** (`onboarding/estilo/`): cada perfil usa imagem própria
   (retangular vertical) em vez da colagem de peça do catálogo — ver
   "Ativos de imagem" abaixo pro caminho exato. Dominante e
@@ -468,6 +458,74 @@ cinza, sem precisar editar código:
   "Em breve" que já existe. **Um perfil novo do catálogo já mapeia
   sozinho** pra `public/estilos/{slugPerfil(nome)}.svg`: não precisa
   tocar em código nenhum, só soltar o arquivo com o nome certo.
+
+## Onboarding — passada 3 (design.md, 2026-07-26)
+
+Ajustes pontuais em Cidade/Estilo (a passada 2 tinha deixado 2 coisas
+erradas/incompletas) + o título do modal de rotina. **Rotina em si e a
+aba Hoje não mudaram nesta passada** — o design.md pediu uma mudança
+de modelo maior ali (item de rotina com múltiplas categorias por dia +
+Hoje mostrando 1 cartão por categoria), mas isso ficou sujeito a
+confirmação antes de mexer no schema/motor de decisão (ver relatório
+correspondente) — não é regressão nem esquecimento, é decisão
+consciente de escopo.
+
+- **Cidade — imagem 100% do espaço restante**: a versão da passada 2
+  usava uma altura fixa (`h-[48vh]`), que sobrava uma faixa de fundo
+  antes do rodapé em telas mais altas. Corrigido via cadeia flex do
+  topo até a página: `onboarding/layout.tsx`'s `<main>` virou `flex
+  flex-col`, `transicao-de-passo.tsx`'s `motion.div` ganhou `flex-1
+  min-h-0` (só assim uma altura definida chega até a página), e
+  `cidade/page.tsx` deixou de usar `EntradaEscalonada` como container
+  raiz — agora é um `div flex flex-col` próprio, com o bloco de
+  texto/formulário em tamanho natural e a imagem em `flex-1 min-h-0`,
+  preenchendo exatamente o que sobra, nunca menos nem mais. Como isso
+  tocou 2 arquivos compartilhados pelos 3 passos (`layout.tsx`,
+  `transicao-de-passo.tsx`), vale saber: é neutro pra Estilo/Rotina —
+  `flex-1` num container cujo conteúdo já é mais alto que a tela
+  simplesmente não faz nada (o conteúdo dita a altura do mesmo jeito),
+  só passa a "esticar" quando o conteúdo é mais curto que a viewport,
+  que é exatamente o caso da Cidade.
+- **Cidade — autocomplete de verdade, não eco**: `OpenWeatherClient#
+  buscarCidades` (que só devolvia o texto digitado de volta) foi
+  removido. No lugar: `onboarding/cidade/_lib/municipios-ibge.ts`
+  busca a lista completa de municípios do Brasil na API do IBGE
+  (`servicodados.ibge.gov.br/api/v1/localidades/municipios`, gratuita,
+  sem chave, ~5.571 municípios) **uma vez por processo** (cache em
+  variável de módulo, não em toda tecla digitada) e
+  `onboarding/cidade/_lib/filtrar-municipios.ts` (puro, testado em
+  `filtrar-municipios.test.ts`) filtra localmente por prefixo — bate
+  no início do nome antes de bater no meio, sem diferenciar
+  acento/caixa. `_actions/buscar-cidades.ts` orquestra os dois e
+  devolve no máximo 8, no formato `{nome, uf, label: "Cidade/UF"}`.
+  Como o IBGE não devolve coordenada, a sugestão selecionada só carrega
+  nome+UF (hidden inputs `cidade`/`uf`, não mais `lat`/`lon`) —
+  `salvarCidade` volta a geocodificar 1x no submit, agora via
+  `OpenWeatherClient#geocodificarMunicipio(cidade, uf)` (novo método,
+  substitui o antigo `geocodificar()` removido na passada 2; o tipo
+  `Coordenada` em `lib/clima/tipos.ts` voltou junto). `usuarios.cidade`
+  passa a gravar `"Cidade/UF"` (era só o texto livre antes).
+- **Estilo — texto vazando do cartão**: nomes sem espaço (ex.:
+  "Descontraída/casual-chic") são 1 token só pro navegador quebrar de
+  linha — sem `break-words`/`min-w-0` na cadeia do cartão até o `<p>`
+  do nome, o texto ultrapassava a borda em vez de quebrar. Corrigido em
+  `estilo-quiz.tsx#CartaoPerfil` (label, div de texto e os 2 parágrafos
+  ganharam `min-w-0`/`break-words`).
+- **Estilo — hierarquia dos títulos de seção, de fato agora**: "Estilo
+  dominante" e "Complementares" foram pedidos na passada 2
+  (`design.md` já dizia "títulos de seção... maiores/mais fortes que o
+  corpo") mas saíram do mesmo tamanho do resto (`text-sm font-medium`)
+  — não foi aplicado de verdade. Agora são `text-xl font-semibold`
+  (mesmo `font-heading`, sem itálico — itálico continua reservado pro
+  título da pergunta, `<h1>`), cada um com o subtítulo explicativo
+  exato do design.md logo abaixo (`text-sm text-muted-foreground`).
+- **Rotina — título do modal**: `DialogTitle` de "Novo item da
+  rotina"/"Editar item" ganhou a mesma classe (`text-xl font-semibold`)
+  usada nos títulos de seção do Estilo acima, via `className` na
+  instância (o padrão do componente `DialogTitle` em
+  `components/ui/dialog.tsx` continua menor — `text-base font-medium`
+  — pra não afetar outro modal que apareça no futuro sem pedir esse
+  peso).
 
 ## Barra de navegação + detalhe de look (design.md, 2026-07-25)
 
