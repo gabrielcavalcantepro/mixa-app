@@ -1,65 +1,44 @@
-import type { Ocasiao } from "@/db/schema";
-import { EMOJI_PADRAO_POR_OCASIAO } from "@/lib/rotina/emoji-padrao";
+import { emojiResolvido } from "@/lib/rotina/emoji-padrao";
+import type { ItemRotina } from "@/lib/rotina/tipos";
 
 const DIAS_ABREV = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
-const MAX_EMOJIS_VISIVEIS = 3;
 
 /**
- * Tira de 7 blocos (Dom..Sáb) — usada tanto no editor interativo de
- * Perfil quanto no preview somente-leitura do onboarding (é por isso
- * que mora em components/, não numa fatia específica). Formato
- * compacto por emoji (design.md, passada 3): cada bloco mostra os
- * emojis das categorias distintas daquele dia lado a lado, cortando
- * com "+N" se não couber — não texto, não contagem sozinha. Dia sem
- * categoria nenhuma cai no emoji de "casa" (mesmo fallback do motor de
- * decisão). Sem `aoTocarDia`, os blocos são estáticos (preview); com,
- * viram botões.
+ * Preview da semana — usado tanto no editor de Perfil quanto no
+ * preview somente-leitura do onboarding (por isso mora em
+ * components/, não numa fatia específica). Lista vertical de 7 linhas
+ * (1 por dia), cada uma larga o bastante pra mostrar o **nome** de
+ * cada item (+ emoji) — não só o emoji sozinho: a primeira versão
+ * (grade de 7 colunas, só emoji) foi testada ao vivo e voltou atrás
+ * depois do feedback direto ("nada de só emoji", precisa mostrar
+ * "Palestra"/"Academia"/"Empresa" etc.). Dia sem item nenhum mostra
+ * "Casa" (mesmo fallback do motor de decisão).
  */
-export function TiraSemanal({
-  mapa,
-  diaSelecionado,
-  aoTocarDia,
-}: {
-  mapa: Record<number, Ocasiao[]>;
-  diaSelecionado?: number | null;
-  aoTocarDia?: (dia: number) => void;
-}) {
+export function TiraSemanal({ mapa }: { mapa: Record<number, ItemRotina[]> }) {
   return (
-    <div className="grid grid-cols-7 gap-1.5">
+    <div className="flex flex-col gap-1.5">
       {DIAS_ABREV.map((rotulo, dia) => {
-        const ativo = diaSelecionado === dia;
-        const categorias = mapa[dia]?.length ? mapa[dia] : (["casa"] as Ocasiao[]);
-        const visiveis = categorias.slice(0, MAX_EMOJIS_VISIVEIS);
-        const restante = categorias.length - visiveis.length;
+        const itens = mapa[dia] ?? [];
 
-        const conteudo = (
-          <>
-            <span className="text-[11px] font-medium">{rotulo}</span>
-            <span className="flex items-center gap-0.5 leading-none">
-              {visiveis.map((ocasiao, indice) => (
-                <span key={`${ocasiao}-${indice}`} className="text-xs">
-                  {EMOJI_PADRAO_POR_OCASIAO[ocasiao]}
-                </span>
-              ))}
-              {restante > 0 && (
-                <span className={`text-[10px] ${ativo ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
-                  +{restante}
+        return (
+          <div key={dia} className="flex items-start gap-3 rounded-lg border border-border px-3 py-2">
+            <span className="w-8 shrink-0 pt-0.5 text-xs font-medium text-muted-foreground">{rotulo}</span>
+            <div className="flex flex-1 flex-wrap gap-1.5">
+              {itens.length > 0 ? (
+                itens.map((item) => (
+                  <span
+                    key={item.id}
+                    className="rounded-full bg-secondary px-2 py-0.5 text-xs whitespace-nowrap"
+                  >
+                    {emojiResolvido(item)} {item.rotulo}
+                  </span>
+                ))
+              ) : (
+                <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
+                  🏠 Casa
                 </span>
               )}
-            </span>
-          </>
-        );
-        const classe = `flex flex-col items-center gap-1 rounded-lg border px-1 py-2 transition-colors ${
-          ativo ? "border-primary bg-primary text-primary-foreground" : "border-border"
-        }`;
-
-        return aoTocarDia ? (
-          <button key={dia} type="button" onClick={() => aoTocarDia(dia)} className={classe}>
-            {conteudo}
-          </button>
-        ) : (
-          <div key={dia} className={classe}>
-            {conteudo}
+            </div>
           </div>
         );
       })}

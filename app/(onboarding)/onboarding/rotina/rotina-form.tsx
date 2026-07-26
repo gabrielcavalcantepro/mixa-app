@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { TiraSemanal } from "@/components/mixa/tira-semanal";
 import { EMOJI_PADRAO_POR_OCASIAO } from "@/lib/rotina/emoji-padrao";
-import { mapaSemanalPorCategoria } from "@/lib/rotina/itens-do-dia";
+import { itensPorDiaDaSemana } from "@/lib/rotina/itens-do-dia";
 import type { Ocasiao } from "@/db/schema";
 
 const DIAS = [
@@ -115,7 +115,7 @@ export function RotinaForm() {
     setPainelAberto(false);
   }
 
-  const mapaSemanal = mapaSemanalPorCategoria(
+  const mapaSemanal = itensPorDiaDaSemana(
     itens.map((item) => ({ id: item.id, rotulo: item.rotulo, emoji: item.emoji, ocasiao: item.ocasiao, diasSemana: item.dias })),
   );
   const itensParaEnviar = itens.map((item) => ({

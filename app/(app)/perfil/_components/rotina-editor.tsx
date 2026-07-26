@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { TiraSemanal } from "@/components/mixa/tira-semanal";
 import { EMOJI_PADRAO_POR_OCASIAO } from "@/lib/rotina/emoji-padrao";
-import { mapaSemanalPorCategoria } from "@/lib/rotina/itens-do-dia";
+import { itensPorDiaDaSemana } from "@/lib/rotina/itens-do-dia";
 import type { ItemRotina } from "@/lib/rotina/tipos";
 import type { Ocasiao } from "@/db/schema";
 
@@ -118,7 +118,7 @@ export function RotinaEditor({ itens: itensIniciais }: { itens: ItemRotina[] }) 
     });
   }
 
-  const mapaSemanal = mapaSemanalPorCategoria(itens);
+  const mapaSemanal = itensPorDiaDaSemana(itens);
   const podeSalvarItem = rotuloDraft.trim().length > 0 && diasDraft.length > 0;
 
   return (

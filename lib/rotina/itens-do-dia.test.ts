@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { agruparPorCategoria, categoriasDoDia, itensDoDia, mapaSemanalPorCategoria } from "./itens-do-dia";
+import { agruparPorCategoria, categoriasDoDia, itensDoDia, itensPorDiaDaSemana } from "./itens-do-dia";
 import type { ItemAvulso, ItemRotina } from "./tipos";
 
 const ITENS: ItemRotina[] = [
@@ -60,16 +60,16 @@ describe("categoriasDoDia", () => {
   });
 });
 
-describe("mapaSemanalPorCategoria", () => {
-  it("junta categorias distintas por dia, sem duplicar quando 2 itens da mesma categoria caem no mesmo dia", () => {
-    const mapa = mapaSemanalPorCategoria(ITENS);
-    expect(mapa[1]).toEqual(["treino", "trabalho"]); // crossfit+musculação (treino) + empresa (trabalho)
-    expect(mapa[3]).toEqual(["treino", "trabalho"]); // musculação + empresa, sem repetir "treino"
-    expect(mapa[0]).toEqual(["lazer"]);
+describe("itensPorDiaDaSemana", () => {
+  it("agrupa os itens completos (não só a categoria) por dia da semana", () => {
+    const mapa = itensPorDiaDaSemana(ITENS);
+    expect(mapa[1]?.map((i) => i.id)).toEqual(["crossfit", "musculacao", "empresa"]);
+    expect(mapa[3]?.map((i) => i.id)).toEqual(["musculacao", "empresa"]);
+    expect(mapa[0]?.map((i) => i.id)).toEqual(["yoga"]);
   });
 
   it("dia sem item nenhum não aparece no mapa (quem lê decide o fallback)", () => {
-    const mapa = mapaSemanalPorCategoria(ITENS);
+    const mapa = itensPorDiaDaSemana(ITENS);
     expect(mapa[6]).toBeUndefined();
   });
 });

@@ -61,17 +61,20 @@ export function categoriasDoDia(input: {
 }
 
 /**
- * Mapa dia-da-semana → categorias distintas presentes — usado pela
- * tira semanal compacta (Perfil e preview do onboarding), que só
- * conhece a rotina permanente (sem avulso/oculto, que são conceitos
- * do dia corrente em Hoje, não da edição da rotina fixa).
+ * Mapa dia-da-semana → itens daquele dia (com rótulo/emoji/categoria
+ * completos) — usado pela tira semanal (Perfil e preview do
+ * onboarding), que só conhece a rotina permanente (sem avulso/oculto,
+ * que são conceitos do dia corrente em Hoje, não da edição da rotina
+ * fixa). Precisa do item inteiro, não só a categoria — a tira mostra
+ * nome de item, não emoji sozinho (feedback direto depois de ver a
+ * versão só-emoji ao vivo).
  */
-export function mapaSemanalPorCategoria(itens: ItemRotina[]): Record<number, Ocasiao[]> {
-  const mapa: Record<number, Ocasiao[]> = {};
+export function itensPorDiaDaSemana(itens: ItemRotina[]): Record<number, ItemRotina[]> {
+  const mapa: Record<number, ItemRotina[]> = {};
   for (const item of itens) {
     for (const dia of item.diasSemana) {
       const lista = mapa[dia] ?? [];
-      if (!lista.includes(item.ocasiao)) lista.push(item.ocasiao);
+      lista.push(item);
       mapa[dia] = lista;
     }
   }

@@ -202,10 +202,11 @@ que cada fatia faz com esses dados continua duplicado por tela
   + avulsos de hoje, já removendo os ocultados) → `agruparPorCategoria`
   (ordem fixa) → `categoriasDoDia` (as duas + fallback "casa" se o dia
   não tiver item nenhum) — usado pelo motor de decisão de Hoje.
-  `mapaSemanalPorCategoria` é a versão pra preview: dado só os itens
+  `itensPorDiaDaSemana` é a versão pra preview: dado só os itens
   permanentes (sem avulso/oculto, que são conceitos do dia corrente,
-  não da rotina fixa), devolve `Record<diaSemana, Ocasiao[]>` pra
-  `TiraSemanal`.
+  não da rotina fixa), devolve `Record<diaSemana, ItemRotina[]>` pra
+  `TiraSemanal` — item completo, não só a categoria (ver "Onboarding —
+  passada 4" abaixo pro porquê).
 
 ## Motor de decisão (`app/(app)/hoje/_lib/`, `_queries/`, `_actions/`)
 
@@ -657,15 +658,13 @@ sempre o fallback (pool normal), não a preferência por família; pra ver
 a família de verdade em ação precisa de `CATALOGO_API_MODE=http`
 contra um catálogo com variantes cadastradas.
 
-**`TiraSemanal` — formato por emoji, não texto** (`components/mixa/
-tira-semanal.tsx`, usado por Perfil e pelo preview do onboarding): cada
-bloco de dia mostra os emojis das categorias distintas daquele dia,
-lado a lado (até 3), cortando com um discreto "+N" se sobrar mais —
-trocou a abreviação em texto (`"Trab"`, `"Trein"`) que existia antes.
-Perfil e onboarding só conhecem a rotina permanente aqui (sem
-avulso/oculto — `mapaSemanalPorCategoria` em `lib/rotina/
-itens-do-dia.ts` só olha `rotina_item`), já que avulso/oculto são
-conceitos do dia corrente, específicos de Hoje.
+**`TiraSemanal`** (`components/mixa/tira-semanal.tsx`, usado por Perfil
+e pelo preview do onboarding): passou por 2 formatos na mesma rodada —
+ver "Onboarding — passada 4" abaixo pro formato atual (nomes dos itens,
+não só emoji). Em ambos, Perfil e onboarding só conhecem a rotina
+permanente aqui (sem avulso/oculto — `itensPorDiaDaSemana` em
+`lib/rotina/itens-do-dia.ts` só olha `rotina_item`), já que
+avulso/oculto são conceitos do dia corrente, específicos de Hoje.
 
 **Migration em 2 passos, não 1**: `drizzle-kit generate` pede
 confirmação interativa (terminal) quando uma passada tem tabela
@@ -683,6 +682,77 @@ histórico de exibição é descartável, não dado de conta.
 texto do push ("Seu look do dia chegou", singular) pode não fazer mais
 sentido com vários cartões por dia — não ajustado ainda, aguardando
 prioridade.
+
+## Onboarding — passada 4 (2026-07-26)
+
+Dois ajustes pontuais depois de ver a passada 3 rodando de verdade —
+nenhum dos dois veio do design.md (o documento não foi atualizado pra
+isso), vieram direto de feedback ao vivo.
+
+**`TiraSemanal` — nomes dos itens, não só emoji.** O formato "emoji da
+categoria, lado a lado" (documentado na seção "Rotina + Hoje" acima)
+foi pro ar, testado ao vivo, e voltou atrás: sem o nome do item
+("Palestra", "Academia", "Empresa"...) a tira não comunicava nada
+específico, só a categoria. Layout mudou de grade de 7 colunas
+(`grid-cols-7`, 1 bloco fino por dia) pra **lista vertical de 7
+linhas** — cada dia agora ocupa a largura inteira do cartão, com o
+rótulo do dia à esquerda e os itens daquele dia (emoji + nome, cada um
+uma pílula) quebrando em várias linhas à direita quando não cabem numa
+só. Dia sem item nenhum mostra "🏠 Casa" por extenso, não só o emoji.
+`lib/rotina/itens-do-dia.ts#mapaSemanalPorCategoria` (que só devolvia
+`Ocasiao[]`, categoria sem detalhe nenhum) foi substituída por
+`itensPorDiaDaSemana`, que devolve os itens completos
+(`Record<diaSemana, ItemRotina[]>`) — a `TiraSemanal` precisa do
+`rotulo` de cada item, não só sabia quais categorias existiam. Como
+consequência, `diaSelecionado`/`aoTocarDia` (suporte a tira clicável)
+saíram do componente — nenhum dos 2 consumidores (Perfil, onboarding)
+usava mais isso desde que os dois viraram editores por item em vez de
+por dia-clicável, então era código morto.
+
+**Incidente de produção — schema nunca migrado lá.** Depois dessa
+sessão inteira mudando o modelo de rotina (ver "Rotina + Hoje" acima),
+o deploy no Vercel foi ao ar com o código novo, mas ninguém tinha
+rodado as migrations 0001/0002 no banco de **produção** (só no local)
+— toda tela autenticada quebrava (`relation "rotina_item" does not
+exist"`). Diagnosticado direto pelos logs de runtime da Vercel
+(`vercel logs <url>`, não dá pra confiar no erro genérico que o
+Next.js mostra no navegador em produção). Duas complicações no caminho
+até resolver, que valem registro caso se repita:
+
+- **`drizzle-kit migrate` falhava em silêncio** no terminal
+  PowerShell da usuária contra o Supabase — sem spinner, sem erro,
+  sem sucesso, só voltava pro prompt. Nem trocar o modo de conexão
+  (pooler → direta) nem ajustar `sslmode` resolveu — o problema era o
+  próprio `drizzle-kit` CLI, não a conexão (confirmado rodando um
+  script `pg` puro contra a mesma URL, que sempre conectou e
+  respondeu normal). Correção: `scripts/aplicar-migrations-direto.mjs`
+  — aplica os `.sql` de `db/migrations/` direto via `pg`, respeitando
+  `db/migrations/meta/_journal.json` e gravando o hash de cada
+  migration em `drizzle.__drizzle_migrations` do mesmo jeito que o
+  `drizzle-kit` faria, então uma rodada futura de `drizzle-kit migrate`
+  (se voltar a funcionar) reconhece o que já foi aplicado e não tenta
+  duplicar. Testado antes contra um banco Postgres local descartável
+  pra confirmar que o comportamento bate 100% com o `drizzle-kit` real.
+  `scripts/diagnostico-conexao.mjs` é o complemento — conecta, lista
+  tabelas de `public` e o histórico de `__drizzle_migrations`, sem
+  spinner nem ambiguidade, útil sempre que precisar confirmar de fato o
+  que existe num banco (local ou remoto) sem depender da UI do
+  `drizzle-kit`. Os dois recebem `DATABASE_URL` do ambiente, iguais aos
+  scripts `db:*` do `package.json`.
+- **`ALTER TABLE look_exibido ADD COLUMN ocasiao ... NOT NULL` falhou**
+  pela mesma razão que era esperada desde que a coluna foi desenhada
+  (ver "Rotina + Hoje" acima): produção tinha 9 linhas reais de
+  histórico de exibição (contas de teste de sessões anteriores, sem
+  dado de conta real) sem valor pra essa coluna nova. `TRUNCATE
+  look_exibido` antes de aplicar resolveu — mesma decisão já tomada
+  pro ambiente local, documentada como aceitável porque é histórico
+  descartável, não dado de conta.
+
+Pra migration de produção **daqui pra frente**: se `npm run db:migrate`
+funcionar normal, usa ele. Se travar/falhar em silêncio de novo,
+`node scripts/aplicar-migrations-direto.mjs` com `DATABASE_URL` da
+conexão **direta** do Supabase (não o pooler — pooler é bom pro app em
+runtime, mas migrations merecem a conexão direta) é o caminho validado.
 
 ## Barra de navegação + detalhe de look (design.md, 2026-07-25)
 
