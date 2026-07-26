@@ -98,6 +98,14 @@ export function CarrosselAbertura({
       </div>
 
       <div className="absolute inset-x-0 bottom-0 flex flex-col items-center gap-6 px-6 pb-10">
+        {/* Logo primeiro, depois título/subtítulo (ordem pedida no
+            design.md) — sempre a versão branca aqui, independente do
+            tema do app, porque o que manda é ter foto escura atrás, não
+            o tema claro/escuro (diferente de um logo sobre bg-background,
+            que precisaria reagir ao tema). */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo/logotipo-horizontal-branco.svg" alt="Mixa" className="h-7 w-auto" />
+
         <AnimatePresence mode="wait">
           <motion.div
             key={indice}
@@ -111,13 +119,6 @@ export function CarrosselAbertura({
             <p className="mt-2 text-white/80">{slide.subtitulo}</p>
           </motion.div>
         </AnimatePresence>
-
-        {/* Sobre a foto o logo é sempre a versão branca, independente do
-            tema do app — o que manda aqui é ter foto escura atrás, não
-            o tema claro/escuro (diferente de LogoMarca, que reage ao
-            tema porque fica sobre bg-background). */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo/logotipo-horizontal-branco.svg" alt="Mixa" className="h-7 w-auto" />
 
         <div className="grid w-full grid-cols-2 gap-3">
           <Button

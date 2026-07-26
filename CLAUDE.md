@@ -68,10 +68,11 @@ onboarding, de propósito, em vez de importar de lá).
 
 ```
 app/
-  (auth)/login/                      # flat: page + form + action (tela única, pequena)
+  (auth)/login/                      # tela de abertura (carrossel) + folha de entrar/criar conta
+    _actions/ _components/
   (onboarding)/onboarding/
-    layout.tsx, progresso.tsx         # indicador de progresso (client, usePathname)
-    conta/ cidade/ estilo/ rotina/    # 1 pasta por passo
+    layout.tsx, pontos-passo.tsx, transicao-de-passo.tsx
+    cidade/ estilo/ rotina/           # 1 pasta por passo (conta não conta mais — ver "Onboarding — passada 2")
   (app)/
     layout.tsx                        # gate auth+onboarding, bottom nav
     hoje/    _lib/ _queries/ _actions/ _components/
@@ -95,7 +96,7 @@ db/                 # schema próprio (ver "Dado do app")
 components/
   ui/                 # shadcn primitives
   shell/bottom-nav.tsx # só usado por (app)/layout.tsx
-  mixa/                # UI genuinamente cross-fatia: ColagemLook (Hoje+Looks+onboarding/estilo), AtivarNotificacoes (Hoje+Perfil)
+  mixa/                # UI genuinamente cross-fatia: ColagemLook (Hoje+Looks), AtivarNotificacoes (Hoje+Perfil), TiraSemanal (Perfil+onboarding/rotina)
 ```
 
 **Regra ao adicionar/alterar algo**: lógica de uma tela específica mora
@@ -227,8 +228,11 @@ SPEC pede — nenhum placeholder de marca resta no código.
   escrito). `viewBox` não é quadrado (653×383) — os geradores de ícone
   centralizam ele num canvas quadrado com fundo sólido, não esticam.
 - `public/logo/logotipo-horizontal-{preto,branco}.svg`: símbolo + "mixa"
-  lado a lado — usado em `(auth)/login/page.tsx` e
-  `(onboarding)/onboarding/layout.tsx` via `<img>` direto.
+  lado a lado — usado em `(auth)/login/_components/carrossel-abertura.tsx`
+  via `<img>` direto (sempre a versão branca, ver abaixo). O onboarding
+  (`cidade`/`estilo`/`rotina`) não mostra mais logo nenhum desde a
+  passada 2 do design.md — a paginação por pontos substituiu esse
+  bloco inteiro (ver "Onboarding — passada 2").
 - `public/logo/logotipo-vertical-{preto,branco}.svg`: entregue, ainda
   sem consumidor em nenhuma tela.
 - **Os arquivos entregues no upload original vieram com os 2 horizontais
@@ -251,12 +255,20 @@ SPEC pede — nenhum placeholder de marca resta no código.
 
 **Logo em UI (não os ícones acima) precisa da variante certa por
 tema**: os SVGs de logo são preto/branco sólido — o preto some sobre
-fundo escuro se não trocar. `components/mixa/logo-marca.tsx` resolve
-isso com CSS puro (`block dark:hidden` / `hidden dark:block`, as duas
-`<img>` sempre no DOM), sem precisar de client component — usado em
-login e no cabeçalho do onboarding. Achado revisando visualmente (não
-óbvio até ver o screenshot em dark): qualquer novo lugar que use um SVG
-de logo direto (não os ícones gerados) precisa do mesmo tratamento.
+fundo escuro se não trocar. Isso resolvia com
+`components/mixa/logo-marca.tsx` (CSS puro, `block dark:hidden` /
+`hidden dark:block`) em 2 lugares — login e cabeçalho do onboarding.
+**O componente foi removido na passada 2 do design.md**: o onboarding
+deixou de mostrar logo (ver "Onboarding — passada 2" abaixo), e o
+carrossel de abertura nunca precisou dele de verdade — ali o fundo é
+sempre uma foto escura, não `bg-background` reagindo a tema, então
+`carrossel-abertura.tsx` sempre usa a versão branca fixa via `<img>`
+direto (comentário no próprio arquivo explica o porquê). Com os 2 usos
+reduzidos a 0 (onboarding) e 1 caso fixo sem variação de tema
+(carrossel), o componente virou código morto e foi apagado. Se um novo
+lugar precisar mostrar o logo sobre `bg-background` (reagindo a tema)
+de novo no futuro, esse é o padrão CSS a recriar — não existe mais
+componente pronto pra isso.
 
 ## Tema claro/escuro (`next-themes`) e UI otimista
 
@@ -354,19 +366,108 @@ apresentação. `criarConta`/`ContaForm` moraram em
 `app/(auth)/login/_actions/criar-conta.ts` e `_components/conta-form.tsx`
 — a rota `/onboarding/conta` foi removida (não existe mais como
 página; `proximoPassoOnboarding` nunca a usa como destino, já que só é
-alcançável sem sessão nenhuma). `Progresso` continua com as 4 entradas
-("1/4 Conta" incluída) sem nenhuma mudança — ela deriva de
-`pathname`, e como nenhuma página jamais está em `/onboarding/conta`,
-esse passo sempre aparece como concluído, que é exatamente o correto
-(se você chegou em `/onboarding/*`, o passo 1 já aconteceu).
+alcançável sem sessão nenhuma). A barra `Progresso` (que mostrava "1/4
+Conta"..."4/4 Rotina") existiu só até a passada 2 do design.md — foi
+removida por completo, substituída pela paginação por pontos. Ver
+"Onboarding — passada 2" abaixo pro estado atual de Cidade/Estilo/
+Rotina.
 
-Cidade/Estilo/Rotina compartilham o mesmo template (`onboarding/layout.tsx`
-+ `transicao-de-passo.tsx` + `EntradaEscalonada` em cada página) — a
-"tela dividida com imagem embaixo" (`cidade/page.tsx`, reaproveitando
-uma imagem de `public/abertura/`) só entrou onde fazia sentido; Estilo
-não precisou (a vitrine de cada card já é a própria imagem) e Rotina
-também não (passo funcional, forçar imagem ali seria decoração sem
-propósito).
+## Onboarding — passada 2 (design.md, 2026-07-26)
+
+Redesign total (não incremental) de Cidade/Estilo/Rotina — as 3 telas
+continuam compartilhando o mesmo template (`onboarding/layout.tsx` +
+`transicao-de-passo.tsx` + `EntradaEscalonada` em cada página), mas
+quase tudo dentro desse template mudou:
+
+- **Paginação por pontos** (`onboarding/pontos-passo.tsx`, substitui
+  `Progresso` por completo — arquivo apagado): 3 pontos centralizados
+  no topo, sem número/rótulo visível (só um `sr-only` "Passo X de 3"
+  pra leitor de tela). O ponto ativo estica em pílula (`w-6`), os
+  inativos ficam círculo (`w-1.5`), cor via `bg-foreground`/
+  `bg-foreground/25`. Deriva de `usePathname()`, mesmo padrão do
+  `Progresso` antigo.
+- **`onboarding/layout.tsx` não tem mais `max-w-sm`/`px-4`** — antes
+  isso envolvia as 3 telas por igual; agora cada `page.tsx` controla a
+  própria largura, porque Cidade precisa de uma imagem de borda a
+  borda (largura de viewport cheia) enquanto Estilo/Rotina continuam
+  numa coluna `max-w-sm` centralizada. `LogoMarca` também saiu daqui
+  (não sobra nenhum uso do componente — ver seção "Marca" acima).
+- **Cidade** (`onboarding/cidade/`): campo de cidade agora é
+  autocomplete com seleção obrigatória — digitar sem escolher uma
+  sugestão da lista não habilita "Continuar" (`cidade-form.tsx`, hidden
+  inputs `cidade`/`lat`/`lon` só preenchidos ao tocar numa sugestão).
+  Busca via `_actions/buscar-cidades.ts` (Server Action chamada direto
+  do client, debounce de 300ms) → `OpenWeatherClient#buscarCidades`
+  (novo método em `lib/clima/open-weather.ts`, até 5 resultados, rótulo
+  `Cidade/Estado`). Sem `OPENWEATHER_API_KEY`, devolve 1 sugestão fake
+  ecoando o texto digitado — não bloqueia testar o fluxo local sem
+  chave, mesma filosofia do resto do cliente de clima. Como lat/lon já
+  vêm resolvidos da sugestão selecionada, `salvarCidade`
+  (`actions.ts`) não geocodifica mais no submit — o método antigo
+  `geocodificar()` (single-shot, só usado ali) foi removido do
+  `OpenWeatherClient`, junto do tipo `Coordenada` que só ele usava.
+  Abaixo do formulário, imagem de apoio ocupa a largura inteira da tela
+  e ~48% da altura, encostada nas bordas (antes era um cartão menor
+  com `rounded-2xl` e respiro ao redor).
+- **Estilo** (`onboarding/estilo/`): cada perfil usa imagem própria
+  (retangular vertical) em vez da colagem de peça do catálogo — ver
+  "Ativos de imagem" abaixo pro caminho exato. Dominante e
+  complementares agora são a mesma grade de 2 colunas (`grid
+  grid-cols-2`) com o mesmo cartão (`CartaoPerfil` em
+  `estilo-quiz.tsx`); antes dominante era 1 cartão grande por linha e
+  só complementares eram grade. O controle (rádio/checkbox) fica
+  sobreposto no canto da imagem, não numa linha separada — mesmo
+  princípio do ícone de favoritar nos cartões de look (Telas de
+  conteúdo, fora de escopo nesta rodada, mas o princípio generaliza
+  bem aqui).
+- **Rotina** (`onboarding/rotina/`): os 2 toggles fixos ("Trabalha
+  fora de casa?"/"Treina?") viraram itens de rotina livres —
+  `rotina-form.tsx` mantém uma lista de itens (`{id, rotulo, ocasiao,
+  dias}`) editável via um `Dialog` (nome livre + categoria escolhida
+  entre as 5 ocasiões existentes + dias da semana). **Conflito de dia
+  é explícito, nunca silencioso** (bug antigo que o design.md pediu
+  pra corrigir): tocar num dia que já pertence a outro item só marca
+  esse dia como pendente (borda destrutiva + aviso de texto com o nome
+  do item dono); um segundo toque no mesmo dia confirma a troca. Essa
+  troca só é de fato aplicada aos outros itens no momento de "Salvar
+  item" (não no toque de confirmação em si) — cancelar o painel nunca
+  tem efeito colateral em outro item. O rótulo livre é só UX de
+  entrada, não é persistido: `derivar-mapa-semana.ts` (que fazia
+  treino sobrepor trabalho em silêncio — exatamente o bug citado) foi
+  apagado; a tela monta o mapa de 7 dias localmente e manda só isso
+  (`{diaSemana, ocasiao}[]`, JSON num hidden input) pro
+  `salvarRotina`, que valida e grava — o schema de `rotina_dia`
+  continua sem nenhuma mudança.
+
+### Ativos de imagem (`public/abertura/`, `public/estilos/`)
+
+Dois conjuntos de imagem que não vêm da API do catálogo — solte o
+arquivo real no caminho exato abaixo pra substituir o placeholder
+cinza, sem precisar editar código:
+
+- **Carrossel de abertura** (4, já existiam desde a passada 1):
+  `public/abertura/hero-1.svg`, `hero-2.svg`, `hero-3.svg`,
+  `hero-4.svg` — retrato, proporção atual dos placeholders é 1080×1920
+  (9:16). `hero-2.svg` também é reaproveitado como imagem de apoio da
+  tela de Cidade (`onboarding/cidade/page.tsx`) — não é um 5º asset
+  separado.
+- **Perfil de estilo** (1 por perfil do catálogo, dinâmico):
+  `public/estilos/{slug}.svg`, retangular vertical — proporção atual
+  dos placeholders é 600×800 (3:4). `slug` vem de
+  `onboarding/estilo/_lib/slug-perfil.ts#slugPerfil(nome)` (testado em
+  `slug-perfil.test.ts`): normaliza NFD, remove diacríticos, minúsculo,
+  troca qualquer sequência não-alfanumérica por `-`, corta `-` das
+  pontas. Perfis do mock atual (`lib/catalogo/mock.ts`) e seus arquivos:
+  - "Clássica" → `public/estilos/classica.svg`
+  - "Descontraída/casual-chic" → `public/estilos/descontraida-casual-chic.svg`
+  - "Moderna/minimalista" → `public/estilos/moderna-minimalista.svg`
+  - "Romântica" → `public/estilos/romantica.svg`
+
+  `estilo/page.tsx` resolve o caminho com `fs.existsSync` (server-side,
+  mesmo padrão de `lib/marca.ts`) — sem o arquivo, cai no placeholder
+  "Em breve" que já existe. **Um perfil novo do catálogo já mapeia
+  sozinho** pra `public/estilos/{slugPerfil(nome)}.svg`: não precisa
+  tocar em código nenhum, só soltar o arquivo com o nome certo.
 
 ## Barra de navegação + detalhe de look (design.md, 2026-07-25)
 
@@ -486,11 +587,24 @@ npm run db:generate && npm run db:migrate
 npm run dev
 ```
 
-1. Abra `http://localhost:3000` → cai em `/login` → "Comece por aqui".
-2. Crie a conta (e-mail/senha), passe pelas 4 etapas do onboarding
-   (cidade, estilo — repare que o card de referência visual de cada
-   estilo usa a colagem de um look mock; rotina — marque dias de
-   trabalho/treino e veja o preview da semana mudar).
+1. Abra `http://localhost:3000` → cai em `/login`, a tela de abertura
+   (carrossel em loop, 4 imagens placeholder trocando com crossfade +
+   Ken Burns, logo horizontal branco acima do título/subtítulo, barra
+   de progresso estilo Stories no topo). Toque "Criar conta" — a folha
+   sobe animada por cima, sem cobrir a tela inteira.
+2. Crie a conta (e-mail/senha) — isso não conta mais como um passo do
+   onboarding, é só a folha de autenticação. Você cai direto em
+   **Cidade** (1º de 3 pontos no topo, sem número/logo/barra): digite
+   parte do nome da cidade, **selecione uma sugestão da lista**
+   (digitar sem selecionar não libera "Continuar") e repare na imagem
+   de apoio de borda a borda abaixo do formulário. Em **Estilo** (2º
+   ponto), veja a grade de 2 colunas com imagem própria por perfil
+   (não colagem de peça) tanto no dominante quanto nos complementares.
+   Em **Rotina** (3º ponto), toque "Adicionar item", dê um nome livre
+   (ex.: "Trabalho"), escolha uma categoria e os dias — repita criando
+   um 2º item que dispute um dia já usado pelo 1º pra ver o aviso de
+   conflito (2 toques no mesmo dia pra confirmar a troca) — e veja o
+   preview da semana (tira de 7 dias) atualizar.
 3. Cai em **Hoje** com um look real do modo mock, batendo
    clima+ocasião+estilo. Teste "Trocar look" e os botões "hoje eu
    vou..." (o look muda de acordo).

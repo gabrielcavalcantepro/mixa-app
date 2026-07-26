@@ -12,10 +12,10 @@ export default async function OnboardingRotinaPage() {
   if (passo !== "rotina") redirect(caminhoDoPasso(passo));
 
   return (
-    <EntradaEscalonada className="flex flex-col gap-6">
+    <EntradaEscalonada className="mx-auto flex w-full max-w-sm flex-col gap-6 px-4 pt-8 pb-10">
       <div>
-        <h1 className="text-3xl">Sua rotina semanal</h1>
-        <p className="text-muted-foreground">
+        <h1 className="font-heading text-4xl leading-tight italic">Sua rotina semanal</h1>
+        <p className="mt-2 text-muted-foreground">
           Isso ajusta o look sugerido pra cada dia. Dá pra editar depois.
         </p>
       </div>

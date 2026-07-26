@@ -1,5 +1,5 @@
 import { buscarClimaCache, salvarClimaCache } from "./cache";
-import type { ClimaDoDia, Coordenada, PesoClima } from "./tipos";
+import type { ClimaDoDia, PesoClima, SugestaoCidade } from "./tipos";
 
 /**
  * OpenWeatherMap, camada gratuita (ver SPEC — permite uso comercial,
@@ -34,23 +34,42 @@ export class OpenWeatherClient {
     return process.env.OPENWEATHER_API_KEY || undefined;
   }
 
-  async geocodificar(cidade: string): Promise<Coordenada | null> {
+  /**
+   * Autocomplete de cidade (onboarding/cidade) — até 5 sugestões, cada
+   * uma já com lat/lon resolvidos. A usuária sempre seleciona uma
+   * sugestão (nunca digita livre — ver cidade/actions.ts), então não
+   * existe mais um método de geocodificação "single-shot" separado.
+   */
+  async buscarCidades(consulta: string): Promise<SugestaoCidade[]> {
+    const termo = consulta.trim();
+    if (termo.length < 2) return [];
+
     if (!this.apiKey) {
       avisarFallbackUmaVez();
-      return { lat: 0, lon: 0 };
+      return [{ label: termo, lat: 0, lon: 0 }];
     }
 
     const url = new URL("https://api.openweathermap.org/geo/1.0/direct");
-    url.searchParams.set("q", cidade);
-    url.searchParams.set("limit", "1");
+    url.searchParams.set("q", termo);
+    url.searchParams.set("limit", "5");
     url.searchParams.set("appid", this.apiKey);
 
     const resposta = await fetch(url);
-    if (!resposta.ok) throw new Error(`Geocodificação falhou (${resposta.status})`);
+    if (!resposta.ok) throw new Error(`Busca de cidade falhou (${resposta.status})`);
 
-    const resultados = (await resposta.json()) as { lat: number; lon: number }[];
-    const [primeiro] = resultados;
-    return primeiro ? { lat: primeiro.lat, lon: primeiro.lon } : null;
+    const resultados = (await resposta.json()) as {
+      name: string;
+      state?: string;
+      country: string;
+      lat: number;
+      lon: number;
+    }[];
+
+    return resultados.map((resultado) => ({
+      label: resultado.state ? `${resultado.name}/${resultado.state}` : `${resultado.name}/${resultado.country}`,
+      lat: resultado.lat,
+      lon: resultado.lon,
+    }));
   }
 
   async climaDoDia(input: { cidade: string; lat: number; lon: number; data: string }): Promise<ClimaDoDia> {

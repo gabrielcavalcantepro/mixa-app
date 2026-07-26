@@ -5,14 +5,13 @@ import { salvarEstilo, type EstadoEstilo } from "./actions";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ColagemLook } from "@/components/mixa/colagem-look";
-import type { LookAprovado, PerfilEstilo } from "@/lib/catalogo/tipos";
+import type { PerfilEstilo } from "@/lib/catalogo/tipos";
 
-export interface PerfilComReferencia extends PerfilEstilo {
-  lookReferencia: LookAprovado | null;
+export interface PerfilComImagem extends PerfilEstilo {
+  imagemSrc: string | null;
 }
 
-export function EstiloQuiz({ perfis }: { perfis: PerfilComReferencia[] }) {
+export function EstiloQuiz({ perfis }: { perfis: PerfilComImagem[] }) {
   const [estado, formAction, pending] = useActionState<EstadoEstilo | undefined, FormData>(
     salvarEstilo,
     undefined,
@@ -44,37 +43,22 @@ export function EstiloQuiz({ perfis }: { perfis: PerfilComReferencia[] }) {
       ))}
 
       {/*
-        Dominante é o momento de maior investimento visual do onboarding
-        inteiro — 1 look por card, colagem completa (não cortada),
-        vitrine em vez de checkbox com texto. Complementares (abaixo)
-        ficam deliberadamente mais compactos: é a escolha secundária.
+        Dominante e complementares usam o mesmo cartão (imagem própria
+        do perfil, não colagem de peça — design.md), sempre em grade de
+        2 colunas — a diferença entre os 2 é só qual seção e o tipo de
+        controle (rádio vs. checkbox), não mais um layout maior/menor.
       */}
       <fieldset className="flex flex-col gap-3">
         <legend className="mb-1 text-sm font-medium">Estilo dominante</legend>
-        <RadioGroup value={dominante} onValueChange={selecionarDominante} className="flex flex-col gap-4">
+        <RadioGroup value={dominante} onValueChange={selecionarDominante} className="grid grid-cols-2 gap-3">
           {perfis.map((perfil) => (
-            <label
+            <CartaoPerfil
               key={perfil.id}
+              perfil={perfil}
+              selecionado={dominante === perfil.id}
               htmlFor={`dominante-${perfil.id}`}
-              className={`flex cursor-pointer flex-col gap-3 rounded-xl border p-3 transition-colors ${
-                dominante === perfil.id ? "border-primary" : "border-border"
-              }`}
-            >
-              {perfil.lookReferencia ? (
-                <ColagemLook pecas={perfil.lookReferencia.pecas} className="aspect-4/5" />
-              ) : (
-                <div className="flex aspect-4/5 items-center justify-center rounded-lg bg-secondary text-xs text-muted-foreground">
-                  Em breve
-                </div>
-              )}
-              <div className="flex items-start justify-between gap-3 px-1">
-                <div>
-                  <p className="font-heading text-2xl italic">{perfil.nome}</p>
-                  <p className="mt-1 text-sm text-muted-foreground">{perfil.descricao}</p>
-                </div>
-                <RadioGroupItem value={perfil.id} id={`dominante-${perfil.id}`} className="mt-1.5 shrink-0" />
-              </div>
-            </label>
+              controle={<RadioGroupItem value={perfil.id} id={`dominante-${perfil.id}`} />}
+            />
           ))}
         </RadioGroup>
       </fieldset>
@@ -90,30 +74,21 @@ export function EstiloQuiz({ perfis }: { perfis: PerfilComReferencia[] }) {
               const marcado = complementares.includes(perfil.id);
               const bloqueado = !marcado && complementares.length >= 2;
               return (
-                <label
+                <CartaoPerfil
                   key={perfil.id}
+                  perfil={perfil}
+                  selecionado={marcado}
+                  bloqueado={bloqueado}
                   htmlFor={`complementar-${perfil.id}`}
-                  className={`flex flex-col gap-2 rounded-lg border p-2 transition-colors ${
-                    marcado ? "border-primary" : "border-border"
-                  } ${bloqueado ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
-                >
-                  {perfil.lookReferencia ? (
-                    <ColagemLook pecas={perfil.lookReferencia.pecas.slice(0, 2)} className="aspect-square" />
-                  ) : (
-                    <div className="flex aspect-square items-center justify-center rounded-lg bg-secondary text-xs text-muted-foreground">
-                      Em breve
-                    </div>
-                  )}
-                  <div className="flex items-center gap-2">
+                  controle={
                     <Checkbox
                       id={`complementar-${perfil.id}`}
                       checked={marcado}
                       disabled={bloqueado}
                       onCheckedChange={(valor) => alternarComplementar(perfil.id, valor === true)}
                     />
-                    <span className="text-sm">{perfil.nome}</span>
-                  </div>
-                </label>
+                  }
+                />
               );
             })}
         </div>
@@ -124,5 +99,44 @@ export function EstiloQuiz({ perfis }: { perfis: PerfilComReferencia[] }) {
         {pending ? "Salvando..." : "Continuar"}
       </Button>
     </form>
+  );
+}
+
+function CartaoPerfil({
+  perfil,
+  selecionado,
+  bloqueado,
+  htmlFor,
+  controle,
+}: {
+  perfil: PerfilComImagem;
+  selecionado: boolean;
+  bloqueado?: boolean;
+  htmlFor: string;
+  controle: React.ReactNode;
+}) {
+  return (
+    <label
+      htmlFor={htmlFor}
+      className={`flex flex-col gap-2 rounded-xl border p-2 transition-colors ${
+        selecionado ? "border-primary" : "border-border"
+      } ${bloqueado ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
+    >
+      <div className="relative aspect-3/4 overflow-hidden rounded-lg bg-secondary">
+        {perfil.imagemSrc ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={perfil.imagemSrc} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
+            Em breve
+          </div>
+        )}
+        <div className="absolute top-2 right-2 rounded-full bg-background/90 p-0.5 shadow-sm">{controle}</div>
+      </div>
+      <div className="px-1 pb-1">
+        <p className="font-heading text-lg italic">{perfil.nome}</p>
+        {perfil.descricao && <p className="mt-0.5 text-xs text-muted-foreground">{perfil.descricao}</p>}
+      </div>
+    </label>
   );
 }

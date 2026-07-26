@@ -1,15 +1,17 @@
-import { LogoMarca } from "@/components/mixa/logo-marca";
-import { Progresso } from "./progresso";
+import { PontosPasso } from "./pontos-passo";
 import { TransicaoDePasso } from "./transicao-de-passo";
 
+/**
+ * Sem max-w/px aqui de propósito (diferente da versão anterior) — a
+ * tela de cidade precisa de uma imagem de borda a borda (design.md),
+ * então a largura de leitura fica a cargo de cada page.tsx, não deste
+ * layout compartilhado.
+ */
 export default function OnboardingLayout({ children }: { children: React.ReactNode }) {
   return (
-    <main className="flex min-h-screen justify-center bg-background px-4 py-10">
-      <div className="w-full max-w-sm">
-        <LogoMarca variante="horizontal" className="mb-6 h-6 w-auto" />
-        <Progresso />
-        <TransicaoDePasso>{children}</TransicaoDePasso>
-      </div>
+    <main className="min-h-screen bg-background">
+      <PontosPasso />
+      <TransicaoDePasso>{children}</TransicaoDePasso>
     </main>
   );
 }

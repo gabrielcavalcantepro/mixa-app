@@ -17,6 +17,28 @@ movimento, tratamento de imagem) — não pede pra copiar layout
 específico de nenhum app de referência. Onde cita referência, é só
 pra ilustrar o princípio por trás.
 
+**Isto é redesign total das telas listadas, não ajuste incremental.**
+Tome liberdade criativa pra melhorar coisas que não foram pedidas
+explicitamente aqui, se isso deixar a tela mais bonita e com mais cara
+de app premium — o único limite é não ignorar o que está pedido de
+forma explícita.
+
+## Ativos de imagem (fora do catálogo)
+
+Duas necessidades de imagem nesta rodada não vêm da API do catálogo —
+são ativo estático do próprio app, como os arquivos de logo já
+entregues:
+- 4 imagens do carrossel de abertura.
+- 1 imagem por perfil de estilo (retangular, vertical), pro passo de
+  estilo do onboarding — **não** reaproveita colagem de look do
+  catálogo pra isso.
+
+Enquanto os arquivos reais não chegam, mantém o placeholder cinza com
+texto indicando a posição (já existe, funciona bem) — documenta no
+CLAUDE.md o caminho e o nome exato de arquivo esperado por posição/
+estilo, pra eu só soltar o arquivo no lugar certo quando estiver
+pronto.
+
 ## Novo fluxo de abertura (antes do login)
 
 Tela nova, primeira coisa que a usuária vê ao abrir o app, antes de
@@ -34,10 +56,10 @@ qualquer autenticação:
 - Enquanto uma imagem está visível: zoom lento e contínuo o tempo
   todo que ela aparece (não só no momento da troca) — efeito tipo
   Ken Burns/Netflix.
-- Abaixo do texto, na parte de baixo da tela: logotipo horizontal da
-  Mixa.
-- Abaixo do logo: 2 botões lado a lado — "Entrar" (menor destaque,
-  ex.: contorno) e "Criar conta" (destaque forte, preenchido).
+- No topo desse bloco de baixo, antes do título: logotipo horizontal
+  da Mixa. Depois vem título + subtítulo, e por último, na base da
+  tela, 2 botões lado a lado — "Entrar" (menor destaque, ex.: contorno)
+  e "Criar conta" (destaque forte, preenchido).
 - Tocar em qualquer um dos dois: abre uma folha (bottom sheet)
   animada subindo de baixo pra cima, cobrindo só parte da tela (não
   tela cheia) — dentro dela mora o formulário de entrar ou criar
@@ -48,23 +70,64 @@ senha) que já existe no onboarding — só troca a forma visual de
 apresentar esse mesmo passo. A sequência funcional continua: conta →
 cidade → estilo → rotina.
 
-## Onboarding (conta/cidade/estilo/rotina) — template único
+## Onboarding (cidade/estilo/rotina) — 3 passos, não 4
 
-Os 4 passos compartilham o mesmo padrão visual. O passo de estilo é
-o mais elaborado dentro desse padrão (mais cartões, mais escolha
-visual) — não um template totalmente diferente dos outros 3.
+Conta (e-mail/senha) não conta mais como passo do onboarding — ela
+acontece na folha da tela de abertura (ver seção acima) e não aparece
+na paginação abaixo. O onboarding em si tem só 3 telas.
 
-- Sensação de quiz: passos curtos, avançar tem transição animada, não
-  corte seco.
-- Elementos de cada passo entram com animação própria ao montar a
-  tela (escalonado, não tudo de uma vez) — mesma lógica que já existe
-  na revelação da colagem de look, aplicada aqui.
-- Onde fizer sentido: tela dividida, com imagem ocupando a parte de
-  baixo (mesmo princípio do carrossel de abertura, sem precisar ser o
-  carrossel em si).
-- Passo de estilo: continua usando a colagem de peças reais como
-  referência visual de cada estilo — dentro do template novo, com
-  mais espaço/hierarquia por ser o momento mais rico do onboarding.
+**Paginação, substituindo por completo o que existe hoje**: nada de
+logo, nada de barrinha estilo Stories, nada de contador em texto
+("1/4", "2/4"...) nessas 3 telas — isso já existe na tela de abertura,
+repetir aqui é redundante. No lugar: 3 pontinhos centralizados no
+topo, sem número, sem rótulo — o ponto ativo estica em formato de
+pílula (referência: paginação de carrossel de site, ponto ativo mais
+alongado que os inativos), os inativos continuam como círculo simples.
+
+Os 3 passos compartilham o mesmo padrão visual de base (transição
+animada ao avançar, elementos entrando de forma escalonada ao montar
+a tela — mesma lógica que já existe na revelação da colagem de look).
+O passo de estilo é o mais elaborado dentro desse padrão, não um
+template diferente dos outros 2.
+
+**Hierarquia de texto — vale pras 3 telas**: pergunta/título de cada
+passo precisa ter contraste e peso visual claros, se destacando de
+verdade do resto do conteúdo — isso está fraco hoje em mais de um
+passo, corrige de forma geral, não só onde foi citado abaixo.
+
+### Cidade
+
+A imagem de apoio preenche a largura inteira da tela e cerca de
+metade da altura, encostada nas bordas — não um cartão menor com
+respiro ao redor. Ela ocupa o espaço que hoje fica em branco embaixo
+do formulário.
+
+O campo de cidade precisa de sugestão conforme a usuária digita (ex.:
+digitar "Fort" já sugere "Fortaleza/CE"), e ela **precisa selecionar**
+uma das sugestões pra avançar — não aceita texto livre sem seleção.
+Evita erro de digitação chegando na API de clima depois.
+
+### Estilo
+
+Cada opção de estilo usa uma imagem própria (retangular, vertical —
+ver "Ativos de imagem" acima), não a colagem de peças do catálogo.
+Layout em grade de 2 colunas (2 opções por linha), não 1 por linha.
+
+### Rotina
+
+Troca os 2 toggles fixos ("Trabalha fora de casa?" / "Treina?") por
+um padrão de adicionar item de rotina livremente: a usuária cria
+quantos itens quiser (rótulo dela — trabalho, treino, igreja,
+encontro com amigas, o que for — e os dias da semana daquele item).
+O resumo da semana se monta a partir do que ela adicionou, não de 2
+categorias fixas.
+
+Por trás, cada item continua mapeando pra uma das 5 ocasiões que já
+existem no sistema (trabalho/lazer/casa/treino/evento) — não muda o
+schema de `rotina_dia`, só a forma de entrada. Se dois itens
+disputarem o mesmo dia, isso precisa ficar visível e resolvido na
+tela pra usuária — nunca um sobrescrevendo o outro em silêncio, do
+jeito que acontece hoje.
 
 ## Barra de navegação inferior
 

@@ -6,7 +6,8 @@ export interface ClimaDoDia {
   descricao: string;
 }
 
-export interface Coordenada {
+export interface SugestaoCidade {
+  label: string;
   lat: number;
   lon: number;
 }
