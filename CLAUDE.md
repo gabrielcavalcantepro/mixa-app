@@ -1,9 +1,12 @@
 # Mixa — App (usuária final)
 
 App final que a usuária (mãe, assinante) usa: onboarding, autenticação,
-motor de decisão do look do dia, e as 4 abas Hoje/Looks/Promos/Perfil.
-Ver `SPEC-mixa-app.md` para o domínio completo — este arquivo é sobre
-como o código está organizado e como rodar o projeto.
+motor de decisão do look do dia, e as 5 abas Looks/Favoritos/Hoje/
+Promos/Perfil (Hoje sempre no meio da barra e sempre a 1ª tela depois
+do onboarding, mesmo não sendo a 1ª da lista — ver "Navegação, cabeçalho
+e central de notificações" abaixo). Ver `SPEC-mixa-app.md` para o
+domínio completo — este arquivo é sobre como o código está organizado e
+como rodar o projeto.
 
 Projeto **separado** de `mixa-catalogo` (a plataforma interna de
 curadoria, pasta irmã) — sem código nem banco compartilhado, só consumo
@@ -74,9 +77,11 @@ app/
     layout.tsx, pontos-passo.tsx, transicao-de-passo.tsx
     cidade/ estilo/ rotina/           # 1 pasta por passo (conta não conta mais — ver "Onboarding — passada 2")
   (app)/
-    layout.tsx                        # gate auth+onboarding, bottom nav
-    hoje/    _lib/ _queries/ _actions/ _components/
-    looks/   _actions/ _components/ _queries/
+    layout.tsx                        # gate auth+onboarding, cabeçalho por aba, bottom nav
+    hoje/       _lib/ _queries/ _actions/ _components/
+    looks/      _actions/ _components/ _queries/ _lib/   # _lib/filtrar-multiplo.ts — ver "Telas de conteúdo"
+    looks/[id]/ _components/
+    favoritos/                         # sem sub-pastas: só um LookGrid filtrado, sem action/query própria
     promos/                           # shell, sem sub-pastas (não tem lógica ainda)
     perfil/  _actions/ _components/ _queries/ _lib/
   api/
@@ -88,15 +93,16 @@ lib/                # genuinely compartilhado
   auth.ts            # Auth.js + usuarioAutenticado() (helper usado em quase toda tela)
   onboarding.ts       # proximoPassoOnboarding() — usado por 3 pontos de entrada diferentes
   data.ts             # dataDeHojeISO()
-  catalogo/            # cliente do catálogo (ver seção própria)
+  catalogo/            # cliente do catálogo (ver seção própria) + slug-perfil.ts (nome→arquivo de imagem)
   clima/                # cliente de clima (ver seção própria)
+  favoritos/             # queries.ts + alternar-favorito.ts — usado por Looks, Favoritos e o detalhe de look
   push/web-push.ts       # envio de notificação
 
 db/                 # schema próprio (ver "Dado do app")
 components/
   ui/                 # shadcn primitives
-  shell/bottom-nav.tsx # só usado por (app)/layout.tsx
-  mixa/                # UI genuinamente cross-fatia: ColagemLook (Hoje+Looks), AtivarNotificacoes (Hoje+Perfil), TiraSemanal (Perfil+onboarding/rotina)
+  shell/               # bottom-nav.tsx, cabecalho-aba.tsx, central-notificacoes.tsx, _actions/ — só usados por (app)/layout.tsx
+  mixa/                # UI genuinamente cross-fatia: ColagemLook (Hoje+Looks), LookCard/LookGrid/BotaoFavoritar (Looks+Favoritos+Hoje+detalhe), CartaoPerfilEstilo (onboarding/estilo+Perfil), AtivarNotificacoes (central de notificações+Perfil), TiraSemanal (Perfil+onboarding/rotina)
 ```
 
 **Regra ao adicionar/alterar algo**: lógica de uma tela específica mora
@@ -111,7 +117,16 @@ Banco `mixa_app`, sem nenhuma FK pro catálogo — `lookId`/
 - **`usuario`**: conta + todo estado de onboarding que não é linha
   própria (`cidade`, `cidadeLat/Lon`, `perfilDominanteId`,
   `notificacaoHorario`, `trialIniciadoEm`, `tutorialInstalacaoVistoEm`).
-  Sem campo `nome` — a spec só pede e-mail/senha.
+  **`nome`** (`NOT NULL`, design.md 2026-07-27) — capturado na criação
+  de conta (`(auth)/login/_actions/criar-conta.ts`), mostrado como
+  título principal do Perfil (e-mail vira secundário). Migration fez
+  backfill via `split_part(email, '@', 1)` pra quem já tinha conta antes
+  do campo existir (mesmo padrão de coluna `NOT NULL` retroativa já
+  usado antes pra `look_exibido.ocasiao`). **`rotinaConcluidaEm`**
+  (nullable, mesma leva) — grava a hora em que `/onboarding/rotina` foi
+  concluído pela 1ª vez; existe porque checar "onboarding de rotina
+  completo" contando linhas em `rotina_item` quebra silenciosamente pra
+  quem termina o passo com 0 itens (ver próximo parágrafo).
 - **`usuario_perfil_complementar`**: até 2 por usuária.
 - **`rotina_item`**: `(id, usuarioId, rotulo, emoji nullable, ocasiao,
   diasSemana int[])` — item permanente da rotina. **Não é mais 1 linha
@@ -132,10 +147,19 @@ Banco `mixa_app`, sem nenhuma FK pro catálogo — `lookId`/
 
 **Onboarding completo é derivado, não uma flag**:
 `lib/onboarding.ts#proximoPassoOnboarding` — sem `cidade` → passo
-cidade; sem `perfilDominanteId` → passo estilo; sem nenhuma linha em
-`rotina_item` → passo rotina; senão completo. Usado por `/` (redirect
-raiz), `(app)/layout.tsx` (gate) e cada `page.tsx` de onboarding (pra
-empurrar de volta quem já terminou e volta numa URL antiga).
+cidade; sem `perfilDominanteId` → passo estilo; sem `rotinaConcluidaEm`
+→ passo rotina; senão completo. Usado por `/` (redirect raiz),
+`(app)/layout.tsx` (gate) e cada `page.tsx` de onboarding (pra empurrar
+de volta quem já terminou e volta numa URL antiga). **Já foi checagem
+de linha em `rotina_item` em vez de `rotinaConcluidaEm`** — regressão
+encontrada nesta rodada (não reportada pela usuária, achada investigando
+outra coisa): quem termina o passo Rotina sem adicionar nenhum item
+(rotina legitimamente vazia) nunca tinha uma linha em `rotina_item`,
+então `proximoPassoOnboarding` devolvia "rotina" pra sempre e a conta
+ficava presa num loop de redirect pra `/onboarding/rotina`. Corrigido
+gravando `rotinaConcluidaEm` incondicionalmente no fim de `salvarRotina`
+(`onboarding/rotina/actions.ts`), não mais condicionado a inserir algum
+`rotina_item`.
 
 ## Cliente do catálogo (`lib/catalogo/`) — contrato real, confirmado
 
@@ -354,8 +378,9 @@ bloquear): `hoje/_components/hoje-interativo.tsx` (ajuste de ocasião +
 trocar look — motivo de existir: os dois eram `<form>` 100%
 server-driven, sem nenhum estado client, e travavam ~800ms-1.1s até o
 motor de decisão inteiro rodar de novo antes de qualquer pixel mudar),
-`looks/_components/botao-favoritar.tsx` (favoritar) e
-`perfil/_components/rotina-editor.tsx` (tira semanal, upsert por dia
+`components/mixa/botao-favoritar.tsx` (favoritar — movido de
+`looks/_components/` na rodada de 2026-07-27, ver "Telas de conteúdo")
+e `perfil/_components/rotina-editor.tsx` (tira semanal, upsert por dia
 via `perfil/_actions/atualizar-dia-rotina.ts` — substituiu o antigo
 `atualizar-rotina.ts`/`EstadoRotinaPerfil`, que mandava os 7 dias juntos
 atrás de um botão "Salvar"). Ao adicionar uma nova ação instantânea,
@@ -463,13 +488,13 @@ quase tudo dentro desse template mudou:
   (retangular vertical) em vez da colagem de peça do catálogo — ver
   "Ativos de imagem" abaixo pro caminho exato. Dominante e
   complementares agora são a mesma grade de 2 colunas (`grid
-  grid-cols-2`) com o mesmo cartão (`CartaoPerfil` em
-  `estilo-quiz.tsx`); antes dominante era 1 cartão grande por linha e
-  só complementares eram grade. O controle (rádio/checkbox) fica
-  sobreposto no canto da imagem, não numa linha separada — mesmo
-  princípio do ícone de favoritar nos cartões de look (Telas de
-  conteúdo, fora de escopo nesta rodada, mas o princípio generaliza
-  bem aqui).
+  grid-cols-2`) com o mesmo cartão (`CartaoPerfilEstilo`, promovido pra
+  `components/mixa/cartao-perfil-estilo.tsx` na rodada de 2026-07-27
+  quando o modal de estilo do Perfil virou o 2º consumidor — ver seção
+  "Perfil" abaixo); antes dominante era 1 cartão grande por linha e só
+  complementares eram grade. O controle (rádio/checkbox) fica sobreposto
+  no canto da imagem, não numa linha separada — mesmo princípio do ícone
+  de favoritar nos cartões de look (ver "Telas de conteúdo" abaixo).
 - **Rotina** (`onboarding/rotina/`): os 2 toggles fixos ("Trabalha
   fora de casa?"/"Treina?") viraram itens de rotina livres —
   `rotina-form.tsx` mantém uma lista de itens (`{id, rotulo, ocasiao,
@@ -504,10 +529,15 @@ cinza, sem precisar editar código:
 - **Perfil de estilo** (1 por perfil do catálogo, dinâmico):
   `public/estilos/{slug}.svg`, retangular vertical — proporção atual
   dos placeholders é 600×800 (3:4). `slug` vem de
-  `onboarding/estilo/_lib/slug-perfil.ts#slugPerfil(nome)` (testado em
+  `lib/catalogo/slug-perfil.ts#slugPerfil(nome)` (testado em
   `slug-perfil.test.ts`): normaliza NFD, remove diacríticos, minúsculo,
   troca qualquer sequência não-alfanumérica por `-`, corta `-` das
-  pontas. Perfis do mock atual (`lib/catalogo/mock.ts`) e seus arquivos:
+  pontas. **Promovido de `onboarding/estilo/_lib/` pra `lib/catalogo/`
+  na rodada de 2026-07-27**, quando o modal de estilo do Perfil passou a
+  precisar do mesmo mapeamento nome→arquivo (2º consumidor genuíno, não
+  duplicado — mesma régua de sempre pra promover algo de fatia-local
+  pra compartilhado). Perfis do mock atual (`lib/catalogo/mock.ts`) e
+  seus arquivos:
   - "Clássica" → `public/estilos/classica.svg`
   - "Descontraída/casual-chic" → `public/estilos/descontraida-casual-chic.svg`
   - "Moderna/minimalista" → `public/estilos/moderna-minimalista.svg`
@@ -756,26 +786,215 @@ runtime, mas migrations merecem a conexão direta) é o caminho validado.
 
 ## Barra de navegação + detalhe de look (design.md, 2026-07-25)
 
-`components/shell/bottom-nav.tsx`: pílula flutuante (`rounded-full`,
-sombra, margem da borda da tela via `safe-area-inset-bottom`) — Hoje
-não é mais o 1º item da lista, é um círculo elevado (`-mt-6`, maior,
-`bg-primary` sólido) entre os outros 3 (Looks/Promos/Perfil, que ficam
-no nível da pílula). Com 4 abas ao todo (par, não ímpar), não existe um
-slot matematicamente central — Hoje fica na 2ª posição de 4, que já lê
-como "centro" o bastante por causa do tamanho/cor/elevação, sem
-precisar de 5 slots artificiais só pra simetria perfeita.
+**Superseded pela rodada de 2026-07-27** — 4 abas viraram 5 e o círculo
+deixou de ser fixo em Hoje. Ver "Navegação, cabeçalho e central de
+notificações" abaixo pro estado atual da pílula; o resto desta seção
+(detalhe de look) continua valendo sem mudança.
 
 Nova rota `app/(app)/looks/[id]/page.tsx` (detalhe de look, não existia
-antes) — `LookCard` (`looks/_components/look-card.tsx`) agora é
-`<Link>` pra lá; o botão de favoritar continua **fora** do `<Link>`
-(irmão posicionado por cima via `absolute`, não dentro), pra tocar no
-coração não disparar navegação. Busca o look por id fazendo
+antes) — `LookCard` (promovido pra `components/mixa/look-card.tsx` na
+rodada de 2026-07-27, ver "Telas de conteúdo" abaixo) é `<Link>` pra
+lá; o botão de favoritar continua **fora** do `<Link>` (irmão
+posicionado por cima via `absolute`, não dentro), pra tocar no coração
+não disparar navegação. Busca o look por id fazendo
 `listarLooksAprovados({})` e filtrando localmente
 (`buscarLookPorId` em `looks/_queries/listar-looks.ts`) — o cliente do
 catálogo não tem filtro por id; aceitável no volume atual, revisitar se
 o catálogo crescer muito. Ação principal (favoritar) fixa embaixo,
 posicionada **acima** da pílula de navegação (não colada nela, `bottom:
-5.5rem` — as duas ficam visíveis ao mesmo tempo sem se sobrepor).
+5.5rem` — as duas ficam visíveis ao mesmo tempo sem se sobrepor). O
+cabeçalho por aba (ver abaixo) **não aparece** nesta tela — só nas 5
+raízes de aba, pra não duplicar com o link "← Looks" que essa tela já
+tem.
+
+## Navegação, cabeçalho e central de notificações (design.md, 2026-07-27)
+
+**5 abas, não 4**: `components/shell/bottom-nav.tsx` agora é Looks/
+Favoritos/Hoje/Promos/Perfil, nessa ordem — Hoje sempre no meio
+(3ª posição de 5, agora um slot matematicamente central de verdade,
+diferente da acomodação "2ª de 4" da rodada anterior). O app **sempre
+abre em Hoje** mesmo não sendo a 1ª aba da lista — isso é uma decisão
+de destino inicial (`/` redireciona pra `/hoje` quando o onboarding já
+terminou), não tem relação com a ordem das abas na pílula.
+
+**O círculo elevado passa a representar a aba ativa, não fixo em
+Hoje**: desliza animado entre posições via `layoutId` compartilhado do
+`motion` (FLIP — a lib recalcula a transição a partir da posição real
+no grid CSS, não de um percentual estimado, o que garante precisão
+mesmo nas colunas das pontas onde o padding do `<ul>` distorceria uma
+conta em `%`). Implementação: cada `<li>` (real e o círculo) recebe
+`style={{gridColumnStart: indice + 1}}` num `grid-cols-5`; o ícone
+dentro do círculo troca com `AnimatePresence mode="wait"` (crossfade
+curto, 150ms) sincronizado com a troca de posição. **Alinhamento
+vertical corrigido**: o círculo tinha `-mt-6` fixo (herdado da rodada
+anterior, pensado só pra Hoje) que o deixava alto demais quando calçado
+nas outras 4 posições, que não tinham essa elevação — agora é
+`marginTop: "-1.25rem"` uniforme, mesmo valor pras 5 posições, e o
+`<Link>` de texto por baixo do círculo ganha `invisible` (não
+`text-muted-foreground`) pra manter o espaço do grid reservado sem
+duplicar layout nem cortar o alinhamento entre ícone ativo e inativo.
+
+**Cabeçalho por aba** (`components/shell/cabecalho-aba.tsx`, novo):
+container sem fundo/borda no topo de `(app)/layout.tsx`, fora da
+`TransicaoDeAba` de propósito (são animações de natureza diferente, não
+devem ficar acopladas) — título pequeno + descrição grande em
+`font-heading italic` (mesma hierarquia dos títulos de seção usados em
+Looks/Hoje) à esquerda, sino da central de notificações à direita.
+Texto exato por rota (design.md): Hoje "Hoje / Seu guarda-roupa do
+dia", Looks "Looks / Guarda-roupa", Favoritos "Favoritos / Seus looks
+guardados", Promos "Promos / Ofertas das parceiras", Perfil "Perfil /
+Sua conta" — troca com fade via `AnimatePresence mode="wait"`
+(`key={pathname}`), nunca corte seco. **Só aparece nas 5 raízes de
+aba** (match exato de pathname, não `startsWith`) — sem isso, a rota de
+detalhe `/looks/[id]` (que já tem seu próprio link "← Looks") ganharia
+um 2º cabeçalho duplicado por cima; esse é o motivo do match ser exato
+e não por prefixo, ao contrário do `BottomNav` (que usa `startsWith` de
+propósito, pra continuar destacando "Looks" como aba ativa mesmo dentro
+do detalhe).
+
+**Central de notificações** (`components/shell/central-notificacoes.tsx`,
+novo): acessada pelo sino do cabeçalho, **uma só pra todo o app** — não
+uma por aba, `Dialog` controlado (`open`/`onOpenChange`) montado 1x em
+`(app)/layout.tsx`. O card fixo "instale o app / ative notificações"
+que antes ficava preso no topo de Hoje (`hoje/_components/
+tutorial-instalacao.tsx`, apagado) **saiu de lá e virou a 1ª entrada**
+dessa central — mesmo conteúdo (`AtivarNotificacoes` + "Agora não" que
+marca `tutorialInstalacaoVistoEm`), só de endereço novo.
+`marcar-tutorial-visto.ts` foi promovido de `hoje/_actions/` pra
+`components/shell/_actions/` (só a central usa agora). Sem esse card
+(usuária já ativou ou já dispensou), a central mostra um estado vazio
+("Nenhuma notificação por enquanto") — nenhum outro tipo de notificação
+foi inventado nesta rodada, de propósito (fora de escopo, design.md).
+O sino ganha um indicador (bolinha) quando há algo novo pra ver — hoje
+só reflete `!tutorialInstalacaoVistoEm`.
+
+## Telas de conteúdo — primeira redesign real (design.md, 2026-07-27)
+
+Rodadas anteriores cobriram só a tela de abertura e o onboarding, de
+propósito — esta é a **primeira vez** que Looks, Favoritos, Promos,
+Perfil e o detalhe de look recebem um redesign de verdade, ancorado nos
+prints de referência do design.md, não um ajuste cosmético em cima do
+que já existia.
+
+**Cartão edge-to-edge compartilhado** — a peça central do redesign,
+promovida pra `components/mixa/` porque agora tem 4 consumidores
+genuínos (Looks, Favoritos, Hoje, detalhe de look), não só Looks como
+antes:
+- `colagem-look.tsx`: perdeu o próprio `rounded-lg` (quem envolve por
+  fora decide o arredondamento agora, edge-to-edge de verdade — a foto
+  preenche o cartão de canto a canto, sem moldura). Ganhou tratamento
+  pra número ímpar de peças: a última peça vira `col-span-2` com
+  `aspect-8/5` (proporção calculada pra preservar a mesma altura de
+  linha que um par normal em `aspect-4/5`, evitando um salto brusco de
+  altura só na última linha) em vez de deixar um bloco cinza vazio
+  sobrando.
+- `look-card.tsx` (movido de `looks/_components/`): `<div
+  className="relative overflow-hidden rounded-2xl bg-secondary">`
+  envolvendo o `<Link>` (colagem + legenda) + `BotaoFavoritar`
+  posicionado `absolute top-3 right-3` — círculo flutuante com
+  `bg-background/90 backdrop-blur-sm`, contraste garantido sobre
+  qualquer foto, nunca numa barra separada embaixo.
+- `look-grid.tsx` (movido): masonry via CSS puro (`columns-2 gap-4` +
+  `break-inside-avoid` por item) — decisão consciente por `columns`
+  em vez do `grid-template-rows: masonry` experimental (suporte
+  inconsistente entre navegadores, principalmente Safari) e em vez de
+  um masonry calculado em JS (que tiraria o zero-JS Server Component
+  que `LookGrid` é hoje). Elimina os blocos cinza vazios que a grade
+  fixa antiga deixava quando os cartões tinham alturas diferentes.
+- `alternar-favorito.ts` + `queries.ts` (movidos de `looks/_actions/`
+  e `looks/_queries/` pra `lib/favoritos/`) — mesma régua de sempre pra
+  promover algo de fatia-local pra compartilhado: com Favoritos
+  precisando do mesmíssimo favoritar sem duplicar componente
+  (design.md explícito: "sem componente novo"), continuar como
+  código Looks-local ia forçar ou duplicação ou import entre fatias,
+  os 2 proibidos pela convenção do projeto.
+
+**Looks** (`app/(app)/looks/page.tsx`): filtros de ocasião e clima
+viram múltipla escolha **dentro da mesma linha** (antes só entre linhas
+funcionava — dava pra combinar 1 ocasião com 1 clima, nunca 2 ocasiões
+juntas). `_lib/filtrar-multiplo.ts#filtrarLooksMultiplo` (pura, 4
+testes) é uma função **nova e local** à fatia de Looks, deliberadamente
+**não** uma mudança em `lib/catalogo/filtrar.ts#filtrarLooks` — esse
+filtro compartilhado também alimenta o motor de decisão de Hoje, que
+sempre quer valor único exato por critério; mudar a semântica dele pra
+OR-múltiplo quebraria Hoje sem necessidade. A URL carrega os filtros
+via chave repetida (`?ocasiao=trabalho&ocasiao=evento`), lida com
+`searchParams: Promise<{ocasiao?: string | string[]}>` + um `paraArray()`
+local. Organização por cápsula (mais recente em destaque) não mudou —
+só ganhou o cartão novo.
+
+**Favoritos** (`app/(app)/favoritos/`, rota nova): o mesmo `LookGrid`
+masonry, filtrado só pro que a usuária favoritou
+(`lib/favoritos/queries.ts#listarLooksFavoritados`) — sem agrupar por
+cápsula (é uma coleção pessoal, não uma vitrine por lançamento) e sem
+nenhum componente novo, exatamente como pedido.
+
+**Detalhe de look** (`looks/[id]/page.tsx`): já tinha a estrutura que o
+design.md pede (imagem/colagem em destaque, tira de miniaturas embaixo,
+ação principal fixa acima da pílula) desde a rodada de 2026-07-25 —
+essa rodada só atualizou os imports pros novos endereços compartilhados
+(`lib/favoritos/queries`, `components/mixa/botao-favoritar`), sem
+mudança estrutural.
+
+**Hoje** (`hoje/_components/look-do-dia-card.tsx`): os cartões de
+categoria (1 por categoria distinta do dia, já definido antes) ganham o
+mesmo tratamento visual dos cartões de Looks — cabeçalho de categoria +
+itens do dia fica **fora** do cartão (mesmo papel que o nome da cápsula
+em Looks: um título de seção, não conteúdo do cartão), e o cartão em si
+(colagem edge-to-edge + nome do look + lista de peças + "Trocar look")
+vira um único `overflow-hidden rounded-2xl bg-secondary`.
+
+**Promos**: sem dado de afiliado real ainda (fora de escopo, sem
+mudança de funcionalidade) — só o estado vazio e o card do Grupo VIP
+ganharam `rounded-2xl`/pílula/título Fraunces italic, mesmo tratamento
+visual do resto do app.
+
+## Perfil — hierarquia de seção, nome e modal de estilo (design.md, 2026-07-27)
+
+**Hierarquia real de seção**: cada bloco (Conta, Assinatura, Aparência,
+Notificação, Rotina semanal, Estilo) ganha um título `font-heading
+italic` — antes todo `<h2>` usava o mesmo `text-xl` sem distinção
+nenhuma entre eles. Os cartões internos (assinatura, item de rotina,
+etc.) também passaram a usar `rounded-2xl bg-secondary`, consistente
+com o cartão compartilhado do resto do app.
+
+**Campo nome, novo**: `usuarios.nome` (`NOT NULL` — ver "Dado do app"
+acima) capturado na folha "Criar conta"
+(`(auth)/login/_components/conta-form.tsx`, 1º campo, antes de
+e-mail) via `criarConta`/`contaSchema`. No Perfil, nome vira o título
+principal (`text-2xl font-medium`) e e-mail desce pra informação
+secundária (`text-sm text-muted-foreground`) logo abaixo — inversão
+deliberada de peso visual, e-mail nunca foi pensado como identidade
+pra usuária, é só a credencial de login.
+
+**Modal de estilo, no lugar da lista de rádio em texto**: `EstiloEditor`
+(`perfil/_components/estilo-editor.tsx`) virou um botão que mostra o
+nome do estilo dominante atual e abre um `Dialog` reaproveitando
+`CartaoPerfilEstilo` (mesmo componente de imagem do quiz de estilo do
+onboarding, promovido pra `components/mixa/` — ver "Telas de conteúdo"
+acima) — a usuária reconhece o estilo pela imagem, não precisa lembrar
+o nome (design.md). O formulário interno é o mesmo de sempre
+(`atualizarEstilo`, inalterado) só que fecha o modal sozinho ao salvar
+com sucesso (`useEffect` observando `estado?.sucesso`).
+
+**Botão "Salvar" do horário de notificação — bug confirmado e
+corrigido** (convenção "investigar antes de alterar", por ser correção
+de algo que já existia): a usuária relatou comportamento "estranho".
+Hipótese: sem feedback de sucesso visível, possivelmente combinado com
+o campo não refletindo o valor salvo. Investigado ao vivo — o dado
+persistia certo (confirmado sobrevivendo a reload completo), mas 2
+coisas mascaravam isso: (1) `<Input defaultValue={horarioAtual}>` é
+**uncontrolled** (Base UI) — depois de `revalidatePath` trazer um
+`horarioAtual` novo do servidor, o campo não resincroniza sozinho
+(console emite "Base UI: A component is changing the default value
+state of an uncontrolled FieldControl after being initialized",
+capturado como evidência direta do mecanismo); (2) nenhum toast/mensagem
+de sucesso era mostrado, então um clique que funcionou parecia não ter
+feito nada. **Fix** (`notificacao-form.tsx` + `atualizar-notificacao.ts`):
+`key={horarioAtual}` no `<Input>` força remontagem quando o valor do
+servidor muda, e a action passou a devolver `{sucesso: true}`, disparando
+`toast.success("Horário atualizado.")` — mesmo padrão `sonner` já usado
+em `AtivarNotificacoes`.
 
 ## Convenções de formulário (portadas do catálogo)
 
@@ -902,16 +1121,55 @@ npm run dev
    confirme que o cartão daquela categoria muda (ou some, se não
    sobrar mais nenhum item nela) — volte no painel e toque "mostrar de
    novo" pra desfazer, sem ter perdido a recorrência do item.
-4. Navegue **Looks** (filtre por ocasião/clima, favorite um look),
-   **Promos** (shell) e **Perfil**: edite rotina (mesmo padrão de itens
-   livres de cima, cada toque já salva — sem botão "Salvar") e estilo,
-   veja a tira semanal no mesmo formato de emoji, e a contagem do
-   trial.
-5. Em Perfil ou no card de instalação de Hoje, clique "Ativar
-   notificações" (aceite a permissão do navegador) e depois "enviar
-   teste" (ou `POST /api/push/teste` com a sessão logada) — a
-   notificação abre `/hoje`. Instalar como PWA de verdade (ícone
-   "Adicionar à Tela de Início") é o único jeito de testar no iOS.
+4. **Navegação e cabeçalho**: toque as 5 abas na pílula (Looks/
+   Favoritos/Hoje/Promos/Perfil) e veja o círculo deslizar até a coluna
+   certa, com o ícone trocando por dentro — repare que ele fica
+   alinhado verticalmente igual nas 5 posições, não só em Hoje. O
+   cabeçalho no topo troca de texto com fade (nunca corte seco) —
+   confira a cópia exata: "Looks / Guarda-roupa", "Favoritos / Seus
+   looks guardados", "Hoje / Seu guarda-roupa do dia", "Promos /
+   Ofertas das parceiras", "Perfil / Sua conta".
+5. **Central de notificações**: toque o sino no cabeçalho — o card
+   "Instale o Mixa" (que antes ficava fixo no topo de Hoje) aparece ali
+   dentro, com "Ativar notificações"/"Agora não". Depois de dispensar
+   ou ativar, abra o sino de novo e veja o estado vazio ("Nenhuma
+   notificação por enquanto"). Abra o sino a partir de **qualquer** aba
+   — é a mesma central em todo lugar, não uma por aba.
+6. **Looks**: veja o feed em masonry (colunas de altura desigual, sem
+   blocos cinza vazios) — toque 2 chips de ocasião ao mesmo tempo (ex.:
+   "Trabalho" + "Evento") e confirme que ambos ficam ativos e o feed
+   mostra looks das duas categorias juntas (múltipla escolha **dentro**
+   da mesma linha de filtro, antes só entre linhas funcionava);
+   repita com clima. Favorite um look (coração sobreposto no canto da
+   foto).
+7. **Favoritos**: abra a aba — só o(s) look(s) que você favoritou em
+   Looks aparecem, mesmo cartão/masonry, sem agrupar por cápsula.
+8. Abra o detalhe de um look (toque o cartão, não o coração) — sem
+   cabeçalho de aba duplicado no topo (só o link "← Looks"), colagem
+   grande, tira de miniaturas, ação de favoritar fixa embaixo.
+9. **Hoje**: confira que cada cartão de categoria tem a mesma cara dos
+   cartões de Looks (colagem edge-to-edge + nome do look + peças dentro
+   de um cartão só), com o cabeçalho da categoria (nome + itens do dia)
+   fora do cartão. Teste "Trocar look" e "Ajustar hoje" normalmente.
+10. **Perfil**: confira o nome (não o e-mail) como título grande no
+    topo, com e-mail menor logo abaixo; veja a hierarquia de seção
+    (Conta/Assinatura/Aparência/Notificação/Rotina semanal/Estilo, cada
+    título em itálico). Toque o botão de Estilo — abre um modal com a
+    mesma grade de cartões com imagem do onboarding (não mais lista de
+    rádio em texto), escolha um dominante diferente e confirme que o
+    modal fecha sozinho e o nome atualiza no botão. Mude o horário de
+    notificação e toque "Salvar" — confirme o toast de sucesso e que o
+    campo mostra o horário salvo (não o antigo) depois do reload.
+11. Em Perfil ou na central de notificações, clique "Ativar
+    notificações" (aceite a permissão do navegador) e depois "enviar
+    teste" (ou `POST /api/push/teste` com a sessão logada) — a
+    notificação abre `/hoje`. Instalar como PWA de verdade (ícone
+    "Adicionar à Tela de Início") é o único jeito de testar no iOS.
+
+Repita o passo 4 em diante trocando o tema (seletor Sistema/Claro/
+Escuro em Perfil → Aparência) — todo o redesign desta rodada usa os
+mesmos 2 tokens de marca de sempre, então claro/escuro devem se
+comportar de forma consistente sem cor "vazando" do tema errado.
 
 Pra testar contra o catálogo de verdade em vez do mock: rode
 `mixa-catalogo` (`npm run dev`, porta diferente da do app), configure

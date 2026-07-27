@@ -11,6 +11,7 @@ const schema = z.object({ horario: z.string().regex(/^\d{2}:\d{2}$/, "Horário i
 
 export interface EstadoNotificacao {
   erro?: string;
+  sucesso?: boolean;
 }
 
 export async function atualizarNotificacao(
@@ -29,5 +30,5 @@ export async function atualizarNotificacao(
     .where(eq(usuarios.id, usuario.id));
 
   revalidatePath("/perfil");
-  return {};
+  return { sucesso: true };
 }

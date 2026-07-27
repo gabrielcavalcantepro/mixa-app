@@ -4,7 +4,15 @@ import type { PecaDoLook } from "@/lib/catalogo/tipos";
 /**
  * Colagem das peças de um look, em grid, na ordem corporal de leitura —
  * usada por Hoje, Looks e o quiz de estilo do onboarding (é por isso
- * que mora em components/, não numa fatia específica).
+ * que mora em components/, não numa fatia específica). Sem cantos
+ * arredondados/fundo próprios de propósito (design.md, "cartão
+ * edge-to-edge") — quem envolve a colagem (o cartão) é quem arredonda,
+ * a imagem preenche até a borda dele.
+ *
+ * Número ímpar de peças: a última ocupa a linha inteira (`col-span-2`)
+ * em vez de deixar 1 célula cinza vazia ao lado — o "bloco vazio" que
+ * o design.md pediu pra eliminar não é só entre cartões diferentes no
+ * feed, é também dentro da colagem de um look só.
  *
  * Usa <img> em vez de next/image de propósito: as imagens vêm do
  * catálogo (URLs externas, ainda não conhecidas) ou dos placeholders
@@ -14,15 +22,19 @@ import type { PecaDoLook } from "@/lib/catalogo/tipos";
  */
 export function ColagemLook({ pecas, className }: { pecas: PecaDoLook[]; className?: string }) {
   const ordenadas = ordenarPorSlot(pecas);
+  const ultimaSozinha = ordenadas.length % 2 === 1;
 
   return (
-    <div className={`grid grid-cols-2 gap-1 overflow-hidden rounded-lg bg-secondary ${className ?? ""}`}>
+    <div className={`grid grid-cols-2 gap-1 overflow-hidden bg-secondary ${className ?? ""}`}>
       {ordenadas.map((peca, indice) => {
         const imagem = peca.imagens.find((img) => img.isCapa) ?? peca.imagens[0];
+        const sozinha = ultimaSozinha && indice === ordenadas.length - 1;
         return (
           <div
             key={peca.id}
-            className="relative aspect-4/5 animate-in fade-in zoom-in-95 bg-secondary duration-400"
+            className={`relative animate-in fade-in zoom-in-95 bg-secondary duration-400 ${
+              sozinha ? "col-span-2 aspect-8/5" : "aspect-4/5"
+            }`}
             style={{ animationDelay: `${indice * 90}ms`, animationFillMode: "backwards" }}
           >
             {imagem && (

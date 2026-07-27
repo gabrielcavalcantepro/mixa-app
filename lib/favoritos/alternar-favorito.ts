@@ -7,6 +7,7 @@ import { db } from "@/db";
 import { favoritos } from "@/db/schema";
 import { usuarioAutenticado } from "@/lib/auth";
 
+/** Movida de `looks/_actions/` pra cá — favoritar é chamado de 3 lugares agora (Looks, Favoritos, detalhe de look). */
 export async function alternarFavorito(formData: FormData) {
   const usuario = await usuarioAutenticado();
   if (!usuario) redirect("/login");
@@ -27,4 +28,6 @@ export async function alternarFavorito(formData: FormData) {
   }
 
   revalidatePath("/looks");
+  revalidatePath("/favoritos");
+  revalidatePath("/looks/[id]", "page");
 }

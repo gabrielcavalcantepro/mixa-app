@@ -234,36 +234,135 @@ precisa agora.
 
 ## Barra de navegação inferior
 
+5 abas, nesta ordem: **Looks, Favoritos, Hoje, Promos, Perfil**. Hoje
+fica no meio. O app sempre abre direto em Hoje, mesmo não sendo a
+primeira aba da lista.
+
 - Pílula flutuante, cantos arredondados, sombra suave — separada do
   conteúdo, não colada na borda da tela.
-- Ícone da aba **Hoje** fica num círculo elevado, sólido, no centro da
-  barra, se destacando das outras 3 (Looks, Promos, Perfil), que ficam
-  no nível da pílula, só ícone + rótulo.
-- Cores seguem o tema ativo: pílula e círculo central trocam de papel
-  entre claro/escuro, mesma lógica que já existe pros 2 tokens de
-  marca.
+- O círculo elevado **não pertence a uma aba fixa** — ele representa
+  a **aba ativa**, qualquer que seja, e desliza horizontalmente de
+  forma animada toda vez que a usuária troca de aba (ex.: Hoje→Perfil
+  desliza até a última posição). Ícone dentro do círculo troca junto
+  pro ícone da aba correspondente.
+- Corrige o alinhamento vertical: hoje o círculo sai um pouco pra cima
+  da pílula, precisa se assentar dentro dela.
+- Cores seguem o tema ativo: pílula e círculo trocam de papel entre
+  claro/escuro, mesma lógica que já existe pros 2 tokens de marca.
 
-## Telas de conteúdo (Hoje, Looks, detalhe de look)
+## Cabeçalho por aba
 
-Princípios a extrair — não cor, não fonte, isso já está fixo:
+Container invisível — sem fundo, sem borda, só espaçamento — no topo
+de cada aba, acima do conteúdo. Contém 2 elementos: título/subtítulo
+da aba (esquerda) e ícone de sino de notificação (direita, igual em
+todas as abas, ver "Central de notificações" abaixo).
 
-- **A imagem é o conteúdo, não decoração.** As fotos nos cartões e
-  telas de detalhe são as peças/looks de verdade (a colagem já
-  existente) — o objetivo é dar mais espaço e presença a essa imagem,
-  não adicionar fotografia de estoque nova.
-- **Tipografia grande e confiante pra título de seção** — Fraunces
-  itálico assume esse papel (nome do look do dia, cabeçalho de cada
-  aba).
-- **Filtros e ações em formato pílula** (chips de ocasião, botão
-  principal).
-- **Cartão de look/peça**: imagem em destaque, ícone de favoritar
-  sobreposto no canto da imagem, não numa barra separada.
-- **Tela de detalhe de look**: ação principal (favoritar, comprar
-  peça) fixa na parte de baixo da tela, sempre visível.
-- **Tira de miniaturas**: aplica esse padrão de carrossel/tira
-  horizontal de imagens pequenas às peças que compõem um look,
-  reforçando visualmente a colagem que já existe, com apresentação
-  mais refinada.
+Texto de cada aba, formato "[Nome], [descrição curta]" em 2 linhas
+(nome menor/discreto em cima, descrição em Fraunces itálico grande
+embaixo — mesma hierarquia que título de seção já usa):
+
+- Hoje: "Hoje / Seu guarda-roupa do dia"
+- Looks: "Looks / Guarda-roupa"
+- Favoritos: "Favoritos / Seus looks guardados"
+- Promos: "Promos / Ofertas das parceiras"
+- Perfil: "Perfil / Sua conta"
+
+Troca de texto ao mudar de aba é animada (mesmo princípio de fade
+usado em outras transições do app), nunca corte seco.
+
+## Central de notificações
+
+Acessada pelo sino do cabeçalho, igual em toda aba — é **uma só**
+central, reunindo notificação de qualquer origem, não uma por aba.
+
+Nesta rodada, só existe **1 tipo de notificação**: o convite pra
+instalar o app e ativar notificações push, que hoje aparece fixo no
+topo da aba Hoje. Ele sai de lá e vira a primeira entrada, já
+existente, dessa central (aparece sozinha a partir do primeiro
+acesso). Não inventa outro tipo de notificação agora — isso é
+funcionalidade futura, fora de escopo desta rodada.
+
+## Telas de conteúdo — redesign total, primeira vez de verdade
+
+Diferente das seções anteriores, essa nunca foi de fato implementada
+ainda — as rodadas passadas cobriram só tela de abertura e onboarding,
+de propósito. Isso significa que Looks, Favoritos, Promos, Perfil e
+detalhe de look ainda estão no visual original, sem nenhum tratamento
+— não é regressão nem trabalho malfeito, é primeira passada mesmo.
+Vale o mesmo nível de ousadia dado ao onboarding: **redesign de
+verdade, ancorado nos prints 3 e 4 de referência, não ajuste
+cosmético**.
+
+O que extrair dos prints — princípio, não fotografia decorativa (as
+imagens do app são as peças/looks reais):
+
+- **Cartão de imagem edge-to-edge**: a foto preenche o cartão de
+  ponta a ponta, cantos arredondados no cartão como um todo, sem
+  borda/moldura em volta da imagem.
+- **Favoritar sobreposto**: ícone de coração/favorito num círculo
+  pequeno flutuando no canto superior da própria imagem (com contraste
+  suficiente pra ler sobre qualquer foto), nunca numa barra separada
+  abaixo.
+- **Título de seção com "ver tudo"**: cabeçalho de bloco (ex.: nome da
+  cápsula) em Fraunces itálico, com um link discreto "ver tudo" à
+  direita quando a lista for maior que o preview.
+- **Filtro em pílula**, preenchido quando ativo, contorno quando
+  inativo.
+
+### Looks
+
+- **Feed em masonry (estilo Pinterest)**, não grade fixa — cada
+  cartão tem altura conforme a quantidade de peça daquele look,
+  eliminando os blocos cinza vazios que sobram na grade atual.
+- **Filtros de ocasião e de clima**: os dois viram múltipla escolha
+  dentro da própria linha (hoje só a combinação entre linhas
+  funciona, dentro da mesma linha só permite 1) — uma usuária pode
+  querer "Trabalho ou Evento" ao mesmo tempo.
+- Organização por cápsula (mais recente em destaque) continua como já
+  está definido desde o início do projeto — só ganha o tratamento de
+  cartão novo.
+
+### Detalhe de look
+
+- Imagem/colagem em destaque no topo, tira de miniaturas das peças
+  logo abaixo (já definido antes, mantém).
+- Ação principal (favoritar, ver peça pra comprar) fixa na parte de
+  baixo da tela, sempre visível, sem precisar rolar até o fim.
+
+### Hoje e Favoritos
+
+Usam o mesmo cartão que Looks — mesma imagem edge-to-edge, mesmo
+favoritar sobreposto. Favoritos é essencialmente o feed de Looks
+filtrado só pro que foi favoritado — mesma grade masonry, sem
+componente novo. Os cartões de categoria de Hoje (1 por categoria
+distinta do dia, já definido antes) recebem esse mesmo tratamento
+visual, não ficam num padrão à parte.
+
+### Promos
+
+Sem dado de afiliado real ainda (continua fora de escopo) — aplica o
+mesmo tratamento de cartão no que já existe hoje como estrutura,
+sem inventar funcionalidade nova de promoção nesta rodada.
+
+### Perfil
+
+Reestrutura com hierarquia real de seção (título Fraunces itálico por
+bloco: Conta, Assinatura, Aparência, Notificação, Rotina semanal,
+Estilo) — hoje tudo tem o mesmo peso visual, sem distinção clara entre
+bloco e bloco.
+
+- **Nome**: campo novo, não existe hoje. Adiciona à criação de conta
+  (a folha de "Criar conta") e ao perfil da usuária no banco. Perfil
+  passa a mostrar o nome como título principal, e-mail vira informação
+  secundária abaixo (menor, sem ser o destaque).
+- **Estilo**: a lista de rádio com texto puro sai. Vira um botão que
+  abre um modal reaproveitando o mesmo componente visual do passo de
+  estilo no onboarding (cartão com imagem por estilo) — a usuária
+  reconhece pela imagem, não precisa lembrar o nome do estilo escolhido.
+- **Botão "Salvar" do horário de notificação**: está com comportamento
+  estranho (usuária relatou como "bugado", sem mais detalhe ainda) —
+  CONVENÇÃO "INVESTIGAR ANTES DE ALTERAR" se aplica aqui, é correção
+  de algo que já existe, não criação.
 
 ## Movimento — o que já existe continua, o que é novo se soma
 

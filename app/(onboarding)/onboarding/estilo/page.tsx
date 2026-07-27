@@ -5,7 +5,7 @@ import { auth } from "@/lib/auth";
 import { caminhoDoPasso, proximoPassoOnboarding } from "@/lib/onboarding";
 import { getCatalogoClient } from "@/lib/catalogo/cliente";
 import { EntradaEscalonada } from "@/components/mixa/entrada-escalonada";
-import { slugPerfil } from "./_lib/slug-perfil";
+import { slugPerfil } from "@/lib/catalogo/slug-perfil";
 import { EstiloQuiz, type PerfilComImagem } from "./estilo-quiz";
 
 export default async function OnboardingEstiloPage() {

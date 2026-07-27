@@ -5,11 +5,9 @@ import { salvarEstilo, type EstadoEstilo } from "./actions";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
-import type { PerfilEstilo } from "@/lib/catalogo/tipos";
+import { CartaoPerfilEstilo, type PerfilComImagem } from "@/components/mixa/cartao-perfil-estilo";
 
-export interface PerfilComImagem extends PerfilEstilo {
-  imagemSrc: string | null;
-}
+export type { PerfilComImagem };
 
 export function EstiloQuiz({ perfis }: { perfis: PerfilComImagem[] }) {
   const [estado, formAction, pending] = useActionState<EstadoEstilo | undefined, FormData>(
@@ -55,7 +53,7 @@ export function EstiloQuiz({ perfis }: { perfis: PerfilComImagem[] }) {
         </p>
         <RadioGroup value={dominante} onValueChange={selecionarDominante} className="grid grid-cols-2 gap-3">
           {perfis.map((perfil) => (
-            <CartaoPerfil
+            <CartaoPerfilEstilo
               key={perfil.id}
               perfil={perfil}
               selecionado={dominante === perfil.id}
@@ -81,7 +79,7 @@ export function EstiloQuiz({ perfis }: { perfis: PerfilComImagem[] }) {
               const marcado = complementares.includes(perfil.id);
               const bloqueado = !marcado && complementares.length >= 2;
               return (
-                <CartaoPerfil
+                <CartaoPerfilEstilo
                   key={perfil.id}
                   perfil={perfil}
                   selecionado={marcado}
@@ -106,46 +104,5 @@ export function EstiloQuiz({ perfis }: { perfis: PerfilComImagem[] }) {
         {pending ? "Salvando..." : "Continuar"}
       </Button>
     </form>
-  );
-}
-
-function CartaoPerfil({
-  perfil,
-  selecionado,
-  bloqueado,
-  htmlFor,
-  controle,
-}: {
-  perfil: PerfilComImagem;
-  selecionado: boolean;
-  bloqueado?: boolean;
-  htmlFor: string;
-  controle: React.ReactNode;
-}) {
-  return (
-    <label
-      htmlFor={htmlFor}
-      className={`flex min-w-0 flex-col gap-2 rounded-xl border p-2 transition-colors ${
-        selecionado ? "border-primary" : "border-border"
-      } ${bloqueado ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
-    >
-      <div className="relative aspect-3/4 overflow-hidden rounded-lg bg-secondary">
-        {perfil.imagemSrc ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={perfil.imagemSrc} alt="" className="h-full w-full object-cover" />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
-            Em breve
-          </div>
-        )}
-        <div className="absolute top-2 right-2 rounded-full bg-background/90 p-0.5 shadow-sm">{controle}</div>
-      </div>
-      <div className="min-w-0 px-1 pb-1">
-        <p className="font-heading text-lg leading-tight break-words italic">{perfil.nome}</p>
-        {perfil.descricao && (
-          <p className="mt-0.5 text-xs break-words text-muted-foreground">{perfil.descricao}</p>
-        )}
-      </div>
-    </label>
   );
 }

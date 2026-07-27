@@ -9,6 +9,7 @@ import { signIn } from "@/lib/auth";
 
 const contaSchema = z
   .object({
+    nome: z.string().trim().min(1, "Digite seu nome."),
     email: z.string().email("E-mail inválido."),
     senha: z.string().min(8, "A senha precisa ter pelo menos 8 caracteres."),
     confirmarSenha: z.string(),
@@ -20,7 +21,7 @@ const contaSchema = z
 
 export interface EstadoConta {
   erro?: string;
-  valores?: { email?: string };
+  valores?: { nome?: string; email?: string };
 }
 
 /**
@@ -33,9 +34,13 @@ export async function criarConta(
   _estadoAnterior: EstadoConta | undefined,
   formData: FormData,
 ): Promise<EstadoConta> {
-  const valoresBrutos = { email: String(formData.get("email") ?? "") };
+  const valoresBrutos = {
+    nome: String(formData.get("nome") ?? ""),
+    email: String(formData.get("email") ?? ""),
+  };
 
   const parsed = contaSchema.safeParse({
+    nome: formData.get("nome"),
     email: formData.get("email"),
     senha: formData.get("senha"),
     confirmarSenha: formData.get("confirmarSenha"),
@@ -55,7 +60,7 @@ export async function criarConta(
 
   const senhaHash = await bcrypt.hash(parsed.data.senha, 10);
   // trialIniciadoEm usa o default (agora) — conta criada = trial iniciado.
-  await db.insert(usuarios).values({ email: parsed.data.email, senhaHash });
+  await db.insert(usuarios).values({ nome: parsed.data.nome, email: parsed.data.email, senhaHash });
 
   // signIn com redirectTo lança NEXT_REDIRECT internamente quando dá
   // certo — esperado, não deve ser capturado (mesma convenção do

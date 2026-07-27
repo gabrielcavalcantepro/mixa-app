@@ -21,12 +21,14 @@ async function seed() {
   const [usuario] = await db
     .insert(usuarios)
     .values({
+      nome: "Usuária Teste",
       email,
       senhaHash,
       cidade: "São Paulo, SP",
       cidadeLat: "-23.5505",
       cidadeLon: "-46.6333",
       perfilDominanteId: "perfil-classica",
+      rotinaConcluidaEm: new Date(),
       notificacaoHorario: "07:00:00",
     })
     .onConflictDoUpdate({ target: usuarios.email, set: { senhaHash } })

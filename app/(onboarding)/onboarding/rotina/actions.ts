@@ -1,9 +1,10 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { ocasiaoEnum, rotinaItens } from "@/db/schema";
+import { ocasiaoEnum, rotinaItens, usuarios } from "@/db/schema";
 import { auth } from "@/lib/auth";
 
 const itemSchema = z.object({
@@ -53,6 +54,10 @@ export async function salvarRotina(
       })),
     );
   }
+
+  // Marca o passo concluído mesmo sem nenhum item — 0 itens é uma
+  // escolha válida (tudo cai em "casa"), não "ainda não passou aqui".
+  await db.update(usuarios).set({ rotinaConcluidaEm: new Date() }).where(eq(usuarios.id, usuarioId));
 
   redirect("/hoje");
 }

@@ -45,7 +45,7 @@ export function SeletorTema() {
           key={opcao.valor}
           type="button"
           onClick={() => setTheme(opcao.valor)}
-          className={`rounded-lg border px-2 py-2 text-xs transition-colors ${
+          className={`rounded-full border px-2 py-2 text-xs transition-colors ${
             montado && theme === opcao.valor
               ? "border-primary bg-primary text-primary-foreground"
               : "border-border text-foreground"

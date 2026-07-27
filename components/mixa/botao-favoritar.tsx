@@ -2,7 +2,7 @@
 
 import { useOptimistic, useTransition } from "react";
 import { Heart } from "lucide-react";
-import { alternarFavorito } from "../_actions/favoritar";
+import { alternarFavorito } from "@/lib/favoritos/alternar-favorito";
 
 /**
  * UI otimista (mesmo padrão usado em hoje-interativo.tsx e no editor de
@@ -10,6 +10,10 @@ import { alternarFavorito } from "../_actions/favoritar";
  * confirma depois. Microinteração específica ao favoritar (não ao
  * desfavoritar, que é a ação neutra): o ícone troca de `key`, o que
  * reaplica o `animate-in zoom-in` — um "pop" só no momento de adicionar.
+ * Mora em components/ (não em looks/_components) porque Looks,
+ * Favoritos e o detalhe de look usam o mesmo botão — design.md pede
+ * "sem componente novo" pra Favoritos, então isso precisa ser
+ * genuinamente compartilhado, não duplicado.
  */
 export function BotaoFavoritar({ lookId, favoritado }: { lookId: string; favoritado: boolean }) {
   const [otimista, marcarOtimista] = useOptimistic(favoritado, (_atual: boolean, novoValor: boolean) => novoValor);
@@ -29,7 +33,7 @@ export function BotaoFavoritar({ lookId, favoritado }: { lookId: string; favorit
       type="button"
       onClick={aoTocar}
       aria-label={otimista ? "Remover dos favoritos" : "Favoritar"}
-      className="rounded-full bg-background/85 p-1.5"
+      className="rounded-full bg-background/90 p-2 shadow-sm backdrop-blur-sm"
     >
       <Heart
         key={otimista ? "favoritado" : "nao-favoritado"}

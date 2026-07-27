@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { rotinaItens, usuarios } from "@/db/schema";
+import { usuarios } from "@/db/schema";
 
 export type PassoOnboarding = "cidade" | "estilo" | "rotina" | "completo";
 
@@ -13,7 +13,11 @@ export type PassoOnboarding = "cidade" | "estilo" | "rotina" | "completo";
  */
 export async function proximoPassoOnboarding(usuarioId: string): Promise<PassoOnboarding> {
   const [usuario] = await db
-    .select({ cidade: usuarios.cidade, perfilDominanteId: usuarios.perfilDominanteId })
+    .select({
+      cidade: usuarios.cidade,
+      perfilDominanteId: usuarios.perfilDominanteId,
+      rotinaConcluidaEm: usuarios.rotinaConcluidaEm,
+    })
     .from(usuarios)
     .where(eq(usuarios.id, usuarioId))
     .limit(1);
@@ -21,14 +25,7 @@ export async function proximoPassoOnboarding(usuarioId: string): Promise<PassoOn
   if (!usuario) return "cidade";
   if (!usuario.cidade) return "cidade";
   if (!usuario.perfilDominanteId) return "estilo";
-
-  const [temRotina] = await db
-    .select({ id: rotinaItens.id })
-    .from(rotinaItens)
-    .where(eq(rotinaItens.usuarioId, usuarioId))
-    .limit(1);
-
-  return temRotina ? "completo" : "rotina";
+  return usuario.rotinaConcluidaEm ? "completo" : "rotina";
 }
 
 export function caminhoDoPasso(passo: PassoOnboarding): string {

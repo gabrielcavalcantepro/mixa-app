@@ -127,12 +127,12 @@ export function RotinaEditor({ itens: itensIniciais }: { itens: ItemRotina[] }) 
 
       <div className="flex flex-col gap-2">
         {itens.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
+          <p className="rounded-2xl bg-secondary p-4 text-center text-sm text-muted-foreground">
             Nenhum item ainda — os dias sem item viram &quot;casa&quot;.
           </p>
         ) : (
           itens.map((item) => (
-            <div key={item.id} className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
+            <div key={item.id} className="flex items-center justify-between gap-3 rounded-2xl bg-secondary p-3">
               <div className="flex flex-col gap-1">
                 <p className="text-sm font-medium">
                   {item.emoji || EMOJI_PADRAO_POR_OCASIAO[item.ocasiao]} {item.rotulo}

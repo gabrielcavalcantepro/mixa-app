@@ -1,11 +1,18 @@
-import { eq } from "drizzle-orm";
-import { db } from "@/db";
-import { favoritos } from "@/db/schema";
 import { getCatalogoClient } from "@/lib/catalogo/cliente";
-import type { FiltroLooksAprovados } from "@/lib/catalogo/tipos";
+import type { Ocasiao } from "@/db/schema";
+import type { PesoClima } from "@/lib/clima/tipos";
+import { filtrarLooksMultiplo } from "../_lib/filtrar-multiplo";
 
-export async function listarLooksParaNavegar(filtro: FiltroLooksAprovados) {
-  return getCatalogoClient().listarLooksAprovados(filtro);
+/**
+ * Busca tudo e filtra localmente com `filtrarLooksMultiplo` (múltipla
+ * escolha por linha, design.md) — o filtro do cliente do catálogo
+ * (`listarLooksAprovados({ocasiao, clima})`) só aceita 1 valor de cada,
+ * é o que o motor de decisão de Hoje precisa; a busca multivalor é
+ * coisa da tela de Looks, fica local aqui.
+ */
+export async function listarLooksParaNavegar(filtro: { ocasioes: Ocasiao[]; climas: PesoClima[] }) {
+  const todos = await getCatalogoClient().listarLooksAprovados({});
+  return filtrarLooksMultiplo(todos, filtro);
 }
 
 /**
@@ -16,9 +23,4 @@ export async function listarLooksParaNavegar(filtro: FiltroLooksAprovados) {
 export async function buscarLookPorId(id: string) {
   const looks = await getCatalogoClient().listarLooksAprovados({});
   return looks.find((look) => look.id === id) ?? null;
-}
-
-export async function buscarIdsFavoritos(usuarioId: string): Promise<Set<string>> {
-  const linhas = await db.select({ lookId: favoritos.lookId }).from(favoritos).where(eq(favoritos.usuarioId, usuarioId));
-  return new Set(linhas.map((linha) => linha.lookId));
 }

@@ -22,6 +22,13 @@
       "when": 1785089977913,
       "tag": "0002_add_rotina_item_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1785146959732,
+      "tag": "0003_add_nome_e_rotina_concluida",
+      "breakpoints": true
     }
   ]
 }

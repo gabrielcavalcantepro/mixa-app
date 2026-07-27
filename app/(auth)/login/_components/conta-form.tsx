@@ -15,6 +15,17 @@ export function ContaForm() {
   return (
     <form action={formAction} className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
+        <Label htmlFor="nome">Nome</Label>
+        <Input
+          id="nome"
+          name="nome"
+          type="text"
+          required
+          autoComplete="name"
+          defaultValue={estado?.valores?.nome ?? ""}
+        />
+      </div>
+      <div className="flex flex-col gap-2">
         <Label htmlFor="email">E-mail</Label>
         <Input
           id="email"

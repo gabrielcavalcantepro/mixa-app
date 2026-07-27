@@ -3,17 +3,23 @@ import { usuarioAutenticado } from "@/lib/auth";
 import type { Ocasiao } from "@/db/schema";
 import type { LookAprovado } from "@/lib/catalogo/tipos";
 import type { PesoClima } from "@/lib/clima/tipos";
-import { buscarIdsFavoritos, listarLooksParaNavegar } from "./_queries/listar-looks";
+import { buscarIdsFavoritos } from "@/lib/favoritos/queries";
+import { LookGrid } from "@/components/mixa/look-grid";
+import { listarLooksParaNavegar } from "./_queries/listar-looks";
 import { Filtros } from "./_components/filtros";
-import { LookGrid } from "./_components/look-grid";
 
 interface Props {
-  searchParams: Promise<{ ocasiao?: string; clima?: string }>;
+  searchParams: Promise<{ ocasiao?: string | string[]; clima?: string | string[] }>;
 }
 
 interface GrupoCapsula {
   capsula: LookAprovado["capsula"];
   looks: LookAprovado[];
+}
+
+function paraArray(valor: string | string[] | undefined): string[] {
+  if (!valor) return [];
+  return Array.isArray(valor) ? valor : [valor];
 }
 
 function agruparPorCapsula(looks: LookAprovado[]): GrupoCapsula[] {
@@ -33,9 +39,11 @@ export default async function LooksPage({ searchParams }: Props) {
   if (!usuario) redirect("/login");
 
   const { ocasiao, clima } = await searchParams;
+  const ocasioes = paraArray(ocasiao) as Ocasiao[];
+  const climas = paraArray(clima) as PesoClima[];
 
   const [looks, idsFavoritos] = await Promise.all([
-    listarLooksParaNavegar({ ocasiao: ocasiao as Ocasiao | undefined, clima: clima as PesoClima | undefined }),
+    listarLooksParaNavegar({ ocasioes, climas }),
     buscarIdsFavoritos(usuario.id),
   ]);
 
@@ -43,19 +51,14 @@ export default async function LooksPage({ searchParams }: Props) {
 
   return (
     <div className="flex flex-col gap-6 p-4">
-      <div>
-        <p className="text-sm text-muted-foreground">Looks</p>
-        <h1 className="text-3xl">Guarda-roupa</h1>
-      </div>
-
-      <Filtros ocasiao={ocasiao} clima={clima} />
+      <Filtros ocasioes={ocasioes} climas={climas} />
 
       {capsulas.length === 0 ? (
         <p className="py-8 text-center text-muted-foreground">Nenhum look encontrado com esse filtro.</p>
       ) : (
         capsulas.map(({ capsula, looks: looksDaCapsula }) => (
           <section key={capsula.id} className="flex flex-col gap-3">
-            <h2 className="text-xl">{capsula.nome}</h2>
+            <h2 className="font-heading text-2xl italic">{capsula.nome}</h2>
             <LookGrid looks={looksDaCapsula} idsFavoritos={idsFavoritos} />
           </section>
         ))

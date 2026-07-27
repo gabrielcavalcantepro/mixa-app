@@ -3,8 +3,9 @@ import { notFound, redirect } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { usuarioAutenticado } from "@/lib/auth";
 import { ordenarPorSlot } from "@/lib/catalogo/ordem-slots";
-import { buscarIdsFavoritos, buscarLookPorId } from "../_queries/listar-looks";
-import { BotaoFavoritar } from "../_components/botao-favoritar";
+import { buscarIdsFavoritos } from "@/lib/favoritos/queries";
+import { BotaoFavoritar } from "@/components/mixa/botao-favoritar";
+import { buscarLookPorId } from "../_queries/listar-looks";
 import { TiraMiniaturas } from "./_components/tira-miniaturas";
 
 interface Props {
