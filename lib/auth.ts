@@ -1,3 +1,4 @@
+import { cache } from "react";
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { eq } from "drizzle-orm";
@@ -59,11 +60,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
  * precisam da linha completa da usuária logada, não só do id da sessão.
  * `null` cobre tanto "sem sessão" quanto "sessão órfã" (usuário
  * removido do banco com JWT ainda válido).
+ *
+ * Envolvida em `cache()` do React (memoização por request, não entre
+ * requests) — antes disso, `(app)/layout.tsx` e cada `page.tsx` de aba
+ * chamavam isso separadamente e disparavam 2 consultas idênticas por
+ * navegação; confirmado rodando local com `DEBUG_SQL=1`
+ * (`db/index.ts`), a mesma query `select ... from usuario where id =
+ * $1` aparecia 2x em sequência. Com `cache()`, a 2ª chamada dentro da
+ * mesma renderização reaproveita a Promise da 1ª sem nova ida ao banco.
  */
-export async function usuarioAutenticado() {
+export const usuarioAutenticado = cache(async function usuarioAutenticado() {
   const session = await auth();
   if (!session?.user?.id) return null;
 
   const [usuario] = await db.select().from(usuarios).where(eq(usuarios.id, session.user.id)).limit(1);
   return usuario ?? null;
-}
+});

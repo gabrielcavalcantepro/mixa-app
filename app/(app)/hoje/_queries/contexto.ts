@@ -3,7 +3,8 @@ import { db } from "@/db";
 import { usuarioPerfisComplementares, type Usuario } from "@/db/schema";
 import { getWeatherClient } from "@/lib/clima/open-weather";
 import { dataDeHojeISO } from "@/lib/data";
-import { buscarCategoriasDoDia } from "./itens-rotina";
+import { categoriasDoDia } from "@/lib/rotina/itens-do-dia";
+import type { DadosRotinaDoDia } from "./itens-rotina";
 import type { CriteriosDoDia } from "../_lib/motor-decisao";
 
 /**
@@ -13,25 +14,35 @@ import type { CriteriosDoDia } from "../_lib/motor-decisao";
  * dia inteiro (design.md: "dia → um ou mais itens, cada um com sua
  * categoria"). `usuario` já vem com cidade/perfilDominanteId
  * garantidos — (app)/layout.tsx só deixa chegar aqui com onboarding
- * completo.
+ * completo. `dadosRotina` já vem buscado por quem chamou (reaproveitado
+ * com o painel "Ajustar hoje" — ver `itens-rotina.ts`), não busca de
+ * novo aqui.
+ *
+ * Complementares e clima não dependem um do outro nem de `dadosRotina`
+ * — paralelizados (antes eram 2 `await` sequenciais sem necessidade,
+ * confirmado rodando local com `DEBUG_SQL=1`).
  */
-export async function montarCriteriosDoDia(usuario: Usuario): Promise<CriteriosDoDia[]> {
+export async function montarCriteriosDoDia(
+  usuario: Usuario,
+  dadosRotina: DadosRotinaDoDia,
+): Promise<CriteriosDoDia[]> {
   const dataHoje = dataDeHojeISO();
   const diaSemana = new Date().getDay();
 
-  const categorias = await buscarCategoriasDoDia(usuario.id, diaSemana, dataHoje);
+  const [complementares, clima] = await Promise.all([
+    db
+      .select({ perfilEstiloId: usuarioPerfisComplementares.perfilEstiloId })
+      .from(usuarioPerfisComplementares)
+      .where(eq(usuarioPerfisComplementares.usuarioId, usuario.id)),
+    getWeatherClient().climaDoDia({
+      cidade: usuario.cidade!,
+      lat: Number(usuario.cidadeLat),
+      lon: Number(usuario.cidadeLon),
+      data: dataHoje,
+    }),
+  ]);
 
-  const complementares = await db
-    .select({ perfilEstiloId: usuarioPerfisComplementares.perfilEstiloId })
-    .from(usuarioPerfisComplementares)
-    .where(eq(usuarioPerfisComplementares.usuarioId, usuario.id));
-
-  const clima = await getWeatherClient().climaDoDia({
-    cidade: usuario.cidade!,
-    lat: Number(usuario.cidadeLat),
-    lon: Number(usuario.cidadeLon),
-    data: dataHoje,
-  });
+  const categorias = categoriasDoDia({ ...dadosRotina, diaSemana });
 
   return categorias.map((categoria) => ({
     ocasiao: categoria.ocasiao,

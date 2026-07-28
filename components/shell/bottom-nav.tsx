@@ -14,8 +14,14 @@ const ABAS = [
 ] as const;
 
 /**
- * Pílula flutuante — separada da borda da tela, não colada nela. O
- * círculo não pertence a nenhuma aba fixa (era só Hoje antes) —
+ * Pílula flutuante — separada da borda da tela via `px-4` do `<nav>`,
+ * não colada nela, mas ocupando toda a largura restante (sem
+ * `max-w-*`, 2026-07-28 feedback direto — antes ficava presa em
+ * `max-w-xs` e os 5 ícones ficavam espremidos no centro da tela). Com
+ * `grid-cols-5` de colunas iguais, a largura cheia já distribui os
+ * ícones igualmente sozinha, sem precisar de `gap` maior nem
+ * `justify-between` manual. O círculo não pertence a nenhuma aba fixa
+ * (era só Hoje antes) —
  * representa a **aba ativa**, qualquer que seja, e desliza até a coluna
  * certa via `layoutId` compartilhado (motion recalcula a transição pela
  * posição real no grid, não por percentual estimado — preciso mesmo nas
@@ -41,7 +47,7 @@ export function BottomNav() {
       className="fixed inset-x-0 bottom-0 z-10 flex justify-center px-4"
       style={{ paddingBottom: "max(env(safe-area-inset-bottom), 16px)" }}
     >
-      <ul className="relative grid w-full max-w-xs grid-cols-5 items-center gap-1 rounded-full border border-border bg-background/95 px-2 py-2 shadow-lg backdrop-blur">
+      <ul className="relative grid w-full grid-cols-5 items-center gap-1 rounded-full border border-border bg-background/95 px-2 py-2 shadow-lg backdrop-blur">
         <motion.li
           layoutId="bottom-nav-circulo-ativo"
           className="pointer-events-none z-10 row-start-1 flex size-14 items-center justify-center justify-self-center rounded-full bg-primary text-primary-foreground shadow-md ring-4 ring-background"

@@ -61,6 +61,26 @@ export function categoriasDoDia(input: {
 }
 
 /**
+ * Itens fixos que caem hoje mas estão escondidos só hoje — o inverso
+ * do que `categoriasDoDia` mostra. Usado só pelo painel "Ajustar hoje",
+ * pra oferecer "mostrar de novo" (desfazer o esconder). Pura: opera
+ * sobre os mesmos `itens`/`ocultosIds` já buscados uma única vez pra
+ * `categoriasDoDia` (`hoje/_queries/itens-rotina.ts#buscarDadosRotinaDoDia`)
+ * — antes disso, `hoje/page.tsx` buscava `rotina_item` de novo do zero
+ * só pra calcular isso (confirmado redundante rodando local com
+ * `DEBUG_SQL=1`: a mesma query aparecia 2x em sequência).
+ */
+export function derivarItensOcultosHoje(input: {
+  itens: ItemRotina[];
+  ocultosIds: Set<string>;
+  diaSemana: number;
+}): ItemResolvido[] {
+  return input.itens
+    .filter((item) => item.diasSemana.includes(input.diaSemana) && input.ocultosIds.has(item.id))
+    .map((item) => ({ id: item.id, rotulo: item.rotulo, emoji: item.emoji, ocasiao: item.ocasiao, origem: "fixo" }));
+}
+
+/**
  * Mapa dia-da-semana → itens daquele dia (com rótulo/emoji/categoria
  * completos) — usado pela tira semanal (Perfil e preview do
  * onboarding), que só conhece a rotina permanente (sem avulso/oculto,

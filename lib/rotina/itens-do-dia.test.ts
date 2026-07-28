@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { agruparPorCategoria, categoriasDoDia, itensDoDia, itensPorDiaDaSemana } from "./itens-do-dia";
+import {
+  agruparPorCategoria,
+  categoriasDoDia,
+  derivarItensOcultosHoje,
+  itensDoDia,
+  itensPorDiaDaSemana,
+} from "./itens-do-dia";
 import type { ItemAvulso, ItemRotina } from "./tipos";
 
 const ITENS: ItemRotina[] = [
@@ -57,6 +63,23 @@ describe("categoriasDoDia", () => {
   it("exemplo do design.md: 5 itens, 3 categorias distintas -> 3 cartões", () => {
     const resultado = categoriasDoDia({ itens: ITENS, avulsos: [], ocultosIds: new Set(), diaSemana: 1 });
     expect(resultado).toHaveLength(2); // treino + trabalho nesse fixture (sem casa nem lazer na segunda)
+  });
+});
+
+describe("derivarItensOcultosHoje", () => {
+  it("item oculto hoje que cai hoje aparece na lista", () => {
+    const resultado = derivarItensOcultosHoje({ itens: ITENS, ocultosIds: new Set(["crossfit"]), diaSemana: 1 });
+    expect(resultado.map((i) => i.id)).toEqual(["crossfit"]);
+  });
+
+  it("item oculto num dia que ele não cai não aparece", () => {
+    const resultado = derivarItensOcultosHoje({ itens: ITENS, ocultosIds: new Set(["crossfit"]), diaSemana: 6 });
+    expect(resultado).toEqual([]);
+  });
+
+  it("sem nenhum id oculto, lista vazia", () => {
+    const resultado = derivarItensOcultosHoje({ itens: ITENS, ocultosIds: new Set(), diaSemana: 1 });
+    expect(resultado).toEqual([]);
   });
 });
 

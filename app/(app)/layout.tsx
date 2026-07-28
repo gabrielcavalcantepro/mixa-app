@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { usuarioAutenticado } from "@/lib/auth";
-import { caminhoDoPasso, proximoPassoOnboarding } from "@/lib/onboarding";
+import { caminhoDoPasso, derivarPassoOnboarding } from "@/lib/onboarding";
 import { BottomNav } from "@/components/shell/bottom-nav";
 import { CabecalhoAba } from "@/components/shell/cabecalho-aba";
 import { TransicaoDeAba } from "@/components/shell/transicao-de-aba";
@@ -9,7 +9,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const usuario = await usuarioAutenticado();
   if (!usuario) redirect("/login");
 
-  const passo = await proximoPassoOnboarding(usuario.id);
+  // Pura — deriva do `usuario` já buscado acima, sem 2ª consulta (ver
+  // lib/onboarding.ts).
+  const passo = derivarPassoOnboarding(usuario);
   if (passo !== "completo") redirect(caminhoDoPasso(passo));
 
   return (

@@ -5,7 +5,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { usuarioAutenticado } from "@/lib/auth";
 import type { Ocasiao } from "@/db/schema";
+import { dataDeHojeISO } from "@/lib/data";
 import { montarCriteriosDoDia } from "../_queries/contexto";
+import { buscarDadosRotinaDoDia } from "../_queries/itens-rotina";
 import {
   buscarIdsExibidosPorOcasiaoDesde,
   buscarUltimoExibidoPorOcasiaoDesde,
@@ -25,18 +27,21 @@ export async function trocarLook(ocasiao: Ocasiao) {
   const usuario = await usuarioAutenticado();
   if (!usuario) redirect("/login");
 
-  const criteriosPorCategoria = await montarCriteriosDoDia(usuario);
+  const dadosRotina = await buscarDadosRotinaDoDia(usuario.id, dataDeHojeISO());
+  const criteriosPorCategoria = await montarCriteriosDoDia(usuario, dadosRotina);
   const criterios = criteriosPorCategoria.find((c) => c.ocasiao === ocasiao);
   if (!criterios) {
     revalidatePath("/hoje");
     return;
   }
 
-  const candidatos = await buscarCandidatos(criterios);
   const inicioDoDia = startOfDay(new Date());
-  const idsHojeDestaCategoria = await buscarIdsExibidosPorOcasiaoDesde(usuario.id, ocasiao, inicioDoDia);
+  const [candidatos, idsHojeDestaCategoria, idAtual] = await Promise.all([
+    buscarCandidatos(criterios),
+    buscarIdsExibidosPorOcasiaoDesde(usuario.id, ocasiao, inicioDoDia),
+    buscarUltimoExibidoPorOcasiaoDesde(usuario.id, ocasiao, inicioDoDia),
+  ]);
 
-  const idAtual = await buscarUltimoExibidoPorOcasiaoDesde(usuario.id, ocasiao, inicioDoDia);
   const lookAtual = idAtual ? candidatos.find((look) => look.id === idAtual) : undefined;
   const familia = lookAtual ? buscarFamiliaDoLook(lookAtual, candidatos) : [];
 

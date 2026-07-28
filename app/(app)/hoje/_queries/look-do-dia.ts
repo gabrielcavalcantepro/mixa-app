@@ -3,6 +3,7 @@ import type { Usuario } from "@/db/schema";
 import type { LookAprovado } from "@/lib/catalogo/tipos";
 import type { ItemResolvido } from "@/lib/rotina/tipos";
 import { montarCriteriosDoDia } from "./contexto";
+import type { DadosRotinaDoDia } from "./itens-rotina";
 import {
   buscarIdsExibidosDesde,
   buscarIdsExibidosPorOcasiaoDesde,
@@ -24,17 +25,28 @@ export interface CartaoDoDia {
  * categoria**, se ele ainda bate com o critério atual) e só escolhe de
  * novo quando não há nada ainda pra aquele cartão, ou quando o critério
  * mudou (o look antigo deixa de aparecer nos candidatos frescos e isso
- * já dispara nova escolha, sem lógica especial).
+ * já dispara nova escolha, sem lógica especial). `dadosRotina` vem de
+ * quem chamou (ver `hoje/page.tsx`), buscado 1x só.
+ *
+ * `criteriosPorCategoria` e `idsRecentes` não dependem um do outro —
+ * paralelizados. Dentro de cada categoria, `candidatos` (catálogo) e
+ * `idExibidoHoje` (banco) também não dependem entre si — idem. Antes
+ * era tudo `await` sequencial sem necessidade (confirmado rodando
+ * local com `DEBUG_SQL=1`).
  */
-export async function obterLooksDoDia(usuario: Usuario): Promise<CartaoDoDia[]> {
-  const criteriosPorCategoria = await montarCriteriosDoDia(usuario);
+export async function obterLooksDoDia(usuario: Usuario, dadosRotina: DadosRotinaDoDia): Promise<CartaoDoDia[]> {
   const inicioDoDia = startOfDay(new Date());
-  const idsRecentes = await buscarIdsExibidosDesde(usuario.id, subDays(inicioDoDia, 14));
+  const [criteriosPorCategoria, idsRecentes] = await Promise.all([
+    montarCriteriosDoDia(usuario, dadosRotina),
+    buscarIdsExibidosDesde(usuario.id, subDays(inicioDoDia, 14)),
+  ]);
 
   return Promise.all(
     criteriosPorCategoria.map(async (criterios): Promise<CartaoDoDia> => {
-      const candidatos = await buscarCandidatos(criterios);
-      const idExibidoHoje = await buscarUltimoExibidoPorOcasiaoDesde(usuario.id, criterios.ocasiao, inicioDoDia);
+      const [candidatos, idExibidoHoje] = await Promise.all([
+        buscarCandidatos(criterios),
+        buscarUltimoExibidoPorOcasiaoDesde(usuario.id, criterios.ocasiao, inicioDoDia),
+      ]);
 
       if (idExibidoHoje) {
         const aindaValido = candidatos.find((look) => look.id === idExibidoHoje);

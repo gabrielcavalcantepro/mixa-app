@@ -1,40 +1,49 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { rotinaItens, rotinaItensAvulsos, rotinaItensOcultos } from "@/db/schema";
-import { categoriasDoDia } from "@/lib/rotina/itens-do-dia";
-import type { CategoriaDoDia, ItemResolvido } from "@/lib/rotina/tipos";
+import type { ItemAvulso, ItemRotina } from "@/lib/rotina/tipos";
+
+export interface DadosRotinaDoDia {
+  itens: ItemRotina[];
+  avulsos: ItemAvulso[];
+  ocultosIds: Set<string>;
+}
 
 /**
- * Busca os itens fixos (menos os ocultados hoje) + avulsos de hoje e já
- * devolve agrupado por categoria distinta — a única query que sabe o
- * formato das 3 tabelas de rotina; o resto do motor de decisão só
- * conhece `CategoriaDoDia` (ver `lib/rotina/`).
+ * Busca os 3 dados brutos de rotina que o dia precisa — itens fixos,
+ * avulsos de hoje e o conjunto de ids ocultados hoje — numa única
+ * chamada, buscados 1x só por `hoje/page.tsx` e reaproveitados tanto
+ * por `categoriasDoDia` (motor de decisão) quanto por
+ * `derivarItensOcultosHoje` (painel "Ajustar hoje"), ambas puras em
+ * `lib/rotina/itens-do-dia.ts`. Antes, cada consumidor buscava
+ * `rotina_item` de novo por conta própria — 2 idas idênticas ao banco
+ * por navegação, confirmado rodando local com `DEBUG_SQL=1`.
+ *
+ * `itens`/`avulsos` não dependem um do outro — paralelizados; `ocultos`
+ * depende dos ids de `itens` pro `inArray`, por isso vem depois.
  */
-export async function buscarCategoriasDoDia(
-  usuarioId: string,
-  diaSemana: number,
-  dataISO: string,
-): Promise<CategoriaDoDia[]> {
-  const itens = await db
-    .select({
-      id: rotinaItens.id,
-      rotulo: rotinaItens.rotulo,
-      emoji: rotinaItens.emoji,
-      ocasiao: rotinaItens.ocasiao,
-      diasSemana: rotinaItens.diasSemana,
-    })
-    .from(rotinaItens)
-    .where(eq(rotinaItens.usuarioId, usuarioId));
-
-  const avulsos = await db
-    .select({
-      id: rotinaItensAvulsos.id,
-      rotulo: rotinaItensAvulsos.rotulo,
-      emoji: rotinaItensAvulsos.emoji,
-      ocasiao: rotinaItensAvulsos.ocasiao,
-    })
-    .from(rotinaItensAvulsos)
-    .where(and(eq(rotinaItensAvulsos.usuarioId, usuarioId), eq(rotinaItensAvulsos.data, dataISO)));
+export async function buscarDadosRotinaDoDia(usuarioId: string, dataISO: string): Promise<DadosRotinaDoDia> {
+  const [itens, avulsos] = await Promise.all([
+    db
+      .select({
+        id: rotinaItens.id,
+        rotulo: rotinaItens.rotulo,
+        emoji: rotinaItens.emoji,
+        ocasiao: rotinaItens.ocasiao,
+        diasSemana: rotinaItens.diasSemana,
+      })
+      .from(rotinaItens)
+      .where(eq(rotinaItens.usuarioId, usuarioId)),
+    db
+      .select({
+        id: rotinaItensAvulsos.id,
+        rotulo: rotinaItensAvulsos.rotulo,
+        emoji: rotinaItensAvulsos.emoji,
+        ocasiao: rotinaItensAvulsos.ocasiao,
+      })
+      .from(rotinaItensAvulsos)
+      .where(and(eq(rotinaItensAvulsos.usuarioId, usuarioId), eq(rotinaItensAvulsos.data, dataISO))),
+  ]);
 
   const ocultos =
     itens.length === 0
@@ -52,53 +61,5 @@ export async function buscarCategoriasDoDia(
             ),
           );
 
-  return categoriasDoDia({
-    itens,
-    avulsos,
-    ocultosIds: new Set(ocultos.map((o) => o.rotinaItemId)),
-    diaSemana,
-  });
-}
-
-/**
- * Itens fixos que caem hoje mas estão escondidos só hoje — o inverso
- * do que `buscarCategoriasDoDia` mostra. Usado só pelo painel "Ajustar
- * hoje", pra oferecer "mostrar de novo" (desfazer o esconder).
- */
-export async function buscarItensOcultosHoje(
-  usuarioId: string,
-  diaSemana: number,
-  dataISO: string,
-): Promise<ItemResolvido[]> {
-  const itens = await db
-    .select({
-      id: rotinaItens.id,
-      rotulo: rotinaItens.rotulo,
-      emoji: rotinaItens.emoji,
-      ocasiao: rotinaItens.ocasiao,
-      diasSemana: rotinaItens.diasSemana,
-    })
-    .from(rotinaItens)
-    .where(eq(rotinaItens.usuarioId, usuarioId));
-
-  const candidatosHoje = itens.filter((item) => item.diasSemana.includes(diaSemana));
-  if (candidatosHoje.length === 0) return [];
-
-  const ocultos = await db
-    .select({ rotinaItemId: rotinaItensOcultos.rotinaItemId })
-    .from(rotinaItensOcultos)
-    .where(
-      and(
-        eq(rotinaItensOcultos.data, dataISO),
-        inArray(
-          rotinaItensOcultos.rotinaItemId,
-          candidatosHoje.map((item) => item.id),
-        ),
-      ),
-    );
-  const ocultosIds = new Set(ocultos.map((o) => o.rotinaItemId));
-
-  return candidatosHoje
-    .filter((item) => ocultosIds.has(item.id))
-    .map((item) => ({ id: item.id, rotulo: item.rotulo, emoji: item.emoji, ocasiao: item.ocasiao, origem: "fixo" }));
+  return { itens, avulsos, ocultosIds: new Set(ocultos.map((o) => o.rotinaItemId)) };
 }

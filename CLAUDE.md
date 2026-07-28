@@ -838,6 +838,14 @@ de texto por baixo do círculo continua com `invisible` (não
 `text-muted-foreground`) pra manter o espaço do grid reservado sem
 duplicar layout nem cortar o alinhamento entre ícone ativo e inativo.
 
+**Largura da pílula, mesmo feedback de 2026-07-28**: o `<ul>` tinha
+`max-w-xs` (320px), deixando os 5 ícones espremidos no centro da tela
+em telas mais largas — removido. Agora a pílula ocupa toda a largura
+disponível dentro do `px-4` do `<nav>` (a única margem até a borda da
+tela); como as 5 colunas do grid são iguais, isso já distribui os
+ícones igualmente sozinho, sem precisar de `gap` maior nem
+`justify-between` manual.
+
 **Cabeçalho por aba** (`components/shell/cabecalho-aba.tsx`, novo):
 container sem fundo/borda no topo de `(app)/layout.tsx`, fora da
 `TransicaoDeAba` de propósito (são animações de natureza diferente, não
@@ -1000,6 +1008,109 @@ servidor muda, e a action passou a devolver `{sucesso: true}`, disparando
 `toast.success("Horário atualizado.")` — mesmo padrão `sonner` já usado
 em `AtivarNotificacoes`.
 
+## Performance de navegação entre abas (investigado e corrigido, 2026-07-28)
+
+Relato original: trocar de aba parecia "carregamento", ~1s, em vez de
+instantâneo. Investigado primeiro (sem alterar nada), depois corrigido
+— as 2 fases, nessa ordem, por pedido explícito.
+
+**Ferramenta usada pra medir de verdade, não só estimar**: `db/index.ts`
+ganhou um logger opcional (`DEBUG_SQL=1` no ambiente) — cada consulta
+real ao Postgres imprime 1 linha com timestamp de alta resolução. Custo
+zero quando a env var não está setada (o resto do tempo). Pra usar:
+`DEBUG_SQL=1 npm run dev` e ler o terminal, ou grepar o log salvo. Foi
+assim que cada achado abaixo foi confirmado com número real, não só
+lido no código.
+
+**3 causas confirmadas** (investigação prévia, aprovada antes de mexer
+em código — convenção "investigar antes de alterar"):
+
+1. **Nenhum `loading.tsx`/Suspense em nenhuma aba** — toda navegação
+   era 100% bloqueante: a tela anterior ficava parada até o servidor
+   terminar tudo, sem feedback nenhum.
+2. **`usuarioAutenticado()` disparava 2-3 consultas idênticas por
+   navegação** — 1x em `(app)/layout.tsx`, 1x de novo dentro da
+   (antiga) `proximoPassoOnboarding()`, 1x de novo em cada `page.tsx`
+   de aba — sem nenhuma memoização.
+3. **Na aba Hoje especificamente**: `rotina_item` buscado 2x (uma vez
+   em `buscarCategoriasDoDia`, de novo em `buscarItensOcultosHoje`) +
+   tudo sequencial (`await` atrás de `await`) mesmo onde não havia
+   dependência nenhuma entre os dados (clima do dia, perfis
+   complementares, ids de looks já exibidos são todos independentes
+   entre si).
+
+**As 3 correções**:
+
+1. **`loading.tsx` em 6 lugares**: `app/loading.tsx` (raiz) + 1 por
+   aba (`hoje/`, `looks/`, `favoritos/`, `promos/`, `perfil/`).
+   Detalhe de roteamento que vale registrar: um `loading.tsx` dentro de
+   `(app)/` só envolveria o que `(app)/layout.tsx` renderiza **depois**
+   de resolver os próprios `await` (o gate de auth+onboarding) — não
+   cobre o gate em si, porque o layout precisa terminar de rodar antes
+   de sequer chegar no `{children}` onde o Suspense entraria. Por isso
+   o `loading.tsx` que cobre o gate mora na **raiz** (`app/loading.tsx`,
+   acima de `(app)/layout.tsx`), enquanto os 5 das abas cobrem o
+   `await` de dado de cada `page.tsx`.
+2. **`usuarioAutenticado()` envolvida em `cache()` do React**
+   (`lib/auth.ts`) — memoização por request (não entre requests):
+   dentro da mesma navegação, a 2ª chamada (seja em `page.tsx` seja em
+   qualquer outro lugar) reaproveita a Promise da 1ª, sem nova consulta.
+   Isso sozinho já beneficia as 5 abas, não só Hoje. Junto com isso,
+   `lib/onboarding.ts` ganhou `derivarPassoOnboarding` (pura, sem
+   consulta) extraída de `proximoPassoOnboarding` — `(app)/layout.tsx`
+   agora deriva o passo do `usuario` que `usuarioAutenticado()` já
+   buscou, em vez de chamar `proximoPassoOnboarding(usuario.id)` (que
+   dispararia uma 2ª consulta pelos mesmos 3 campos).
+   `proximoPassoOnboarding(usuarioId)` continua existindo, sem mudança
+   de assinatura, pros 5 chamadores que só têm o id da sessão (login,
+   raiz, os 3 passos do onboarding).
+3. **Hoje**: `hoje/_queries/itens-rotina.ts#buscarDadosRotinaDoDia`
+   substitui `buscarCategoriasDoDia`+`buscarItensOcultosHoje` — busca
+   `rotina_item`/`rotina_item_avulso`/`rotina_item_oculto` **1x só**,
+   reaproveitado tanto pelo motor de decisão (`categoriasDoDia`, pura)
+   quanto pelo painel "Ajustar hoje" (`derivarItensOcultosHoje`, nova
+   função pura em `lib/rotina/itens-do-dia.ts`). `itens`/`avulsos` são
+   buscados em paralelo (`Promise.all`, não dependem um do outro);
+   `ocultos` continua depois porque depende dos ids de `itens`.
+   `contexto.ts#montarCriteriosDoDia` agora recebe `dadosRotina` já
+   pronto (não busca mais) e paraleliza complementares+clima.
+   `look-do-dia.ts#obterLooksDoDia` paraleliza `criteriosPorCategoria`+
+   `idsRecentes`, e dentro de cada categoria paraleliza `candidatos`
+   (catálogo)+`idExibidoHoje` (banco). `trocar-look.ts` (a Server
+   Action) recebeu o mesmo tratamento — busca `dadosRotina` e paraleliza
+   `candidatos`+`idsHojeDestaCategoria`+`idAtual`.
+
+**Medido local, antes vs. depois** (`DEBUG_SQL=1`, navegação pra
+`/hoje`, banco Docker local — round-trip por consulta é quase zero
+nesse ambiente):
+
+| | Antes | Depois |
+|---|---|---|
+| Consultas por navegação | 13 (14 com cache de clima frio) | 9 |
+| Tempo total (aquecido) | ~110-140ms | ~120-160ms |
+
+**A contagem caiu 31% (13→9) de forma limpa e confirmada** — exatamente
+as 4 esperadas: 1 `usuario` a menos (cache dedup), 1 `usuario` a menos
+(proximoPassoOnboarding virou pura), 1 `rotina_item` a menos e 1
+`rotina_item_oculto` a menos (busca compartilhada). A paralelização
+também foi confirmada nos timestamps do log (`DEBUG_SQL`) — ex.: as
+consultas de clima e complementares disparam com menos de 1ms de
+diferença uma da outra, não mais em sequência.
+
+**O tempo local não caiu na mesma proporção — e isso é esperado, não
+um sinal de que a correção não funcionou.** Contra o Postgres local em
+Docker (mesma máquina, latência de rede ~0), 13 ou 9 idas ao banco
+custam quase a mesma coisa em relógio de parede — o gargalo local nunca
+foi o número de consultas, foi outra coisa (provavelmente o custo de
+1ª compilação de rota do Turbopack em dev, que também explica por que a
+1ª medição desta investigação deu ~830ms e as seguintes, já
+"aquecidas", caíram pra ~110-140ms). **Contra produção (Vercel +
+Supabase), cada uma dessas idas ao banco tem latência de rede de
+verdade** — é aí que 4 consultas a menos + paralelização de verdade
+(reduzindo o comprimento da cadeia sequencial, não só a contagem) devem
+aparecer como diferença bem mais perceptível. Ainda não medido em
+produção nesta rodada (precisaria publicar as mudanças primeiro).
+
 ## Convenções de formulário (portadas do catálogo)
 
 `<form action={serverAction}>` nativo + `useActionState`, sem
@@ -1054,13 +1165,16 @@ npm test                   # vitest run
 npm run db:studio          # Drizzle Studio
 npm run push:vapid         # gera novo par de chaves VAPID
 npm run cron:notificacoes  # dispara o cron de push manualmente (local)
+DEBUG_SQL=1 npm run dev    # loga cada consulta real ao Postgres (ver "Performance de navegação")
 ```
 
 `.env` (copiar de `.env.example`): `DATABASE_URL`, `AUTH_SECRET`,
 `CATALOGO_API_MODE`/`CATALOGO_API_URL`/`CATALOGO_API_TOKEN`,
 `OPENWEATHER_API_KEY`, `VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY`/
 `VAPID_SUBJECT`/`NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `CRON_SECRET`,
-`SEED_USER_EMAIL`/`SEED_USER_PASSWORD`.
+`SEED_USER_EMAIL`/`SEED_USER_PASSWORD`. `DEBUG_SQL` não é uma variável
+de `.env` — passa direto na linha de comando quando for medir (não fica
+ligada por padrão, propositalmente, pra não poluir o log normal).
 
 ## Pendências propositalmente incompletas (fase 1)
 
