@@ -826,11 +826,15 @@ conta em `%`). Implementação: cada `<li>` (real e o círculo) recebe
 `style={{gridColumnStart: indice + 1}}` num `grid-cols-5`; o ícone
 dentro do círculo troca com `AnimatePresence mode="wait"` (crossfade
 curto, 150ms) sincronizado com a troca de posição. **Alinhamento
-vertical corrigido**: o círculo tinha `-mt-6` fixo (herdado da rodada
-anterior, pensado só pra Hoje) que o deixava alto demais quando calçado
-nas outras 4 posições, que não tinham essa elevação — agora é
-`marginTop: "-1.25rem"` uniforme, mesmo valor pras 5 posições, e o
-`<Link>` de texto por baixo do círculo ganha `invisible` (não
+vertical, 2 correções na mesma área**: primeiro o círculo tinha `-mt-6`
+fixo (herdado de quando só existia em Hoje) que o deixava alto demais
+calçado nas outras 4 posições — virou `marginTop: "-1.25rem"` uniforme
+pras 5. Essa elevação em si foi removida de vez depois (2026-07-28,
+feedback direto): o círculo é maior que os outros itens e todos dividem
+a mesma linha do grid (`row-start-1`), então sem nenhum margin ele
+mesmo dita a altura da linha e fica **sempre contido dentro da pílula**
+— nunca mais projeta pra cima da borda, mesmo selecionado. O `<Link>`
+de texto por baixo do círculo continua com `invisible` (não
 `text-muted-foreground`) pra manter o espaço do grid reservado sem
 duplicar layout nem cortar o alinhamento entre ícone ativo e inativo.
 

@@ -15,11 +15,16 @@ const ABAS = [
 
 /**
  * Pílula flutuante — separada da borda da tela, não colada nela. O
- * círculo elevado não pertence a nenhuma aba fixa (era só Hoje antes) —
+ * círculo não pertence a nenhuma aba fixa (era só Hoje antes) —
  * representa a **aba ativa**, qualquer que seja, e desliza até a coluna
  * certa via `layoutId` compartilhado (motion recalcula a transição pela
  * posição real no grid, não por percentual estimado — preciso mesmo nas
- * colunas das pontas). O ícone escondido por baixo do círculo (mesma
+ * colunas das pontas). Fica sempre contido dentro da pílula (sem
+ * margin negativo/offset pra cima) — como ele é maior que os outros
+ * itens e todos dividem a mesma linha do grid (`row-start-1`), é ele
+ * quem dita a altura da linha; `items-center` no `<ul>` centraliza os
+ * ícones/rótulos menores dentro dessa altura, então nada nunca escapa
+ * do `py-2` da pílula. O ícone escondido por baixo do círculo (mesma
  * coluna, `invisible`) mantém o espaço do grid reservado sem duplicar
  * layout. Cores seguem o tema ativo pelos tokens de sempre.
  */
@@ -40,7 +45,7 @@ export function BottomNav() {
         <motion.li
           layoutId="bottom-nav-circulo-ativo"
           className="pointer-events-none z-10 row-start-1 flex size-14 items-center justify-center justify-self-center rounded-full bg-primary text-primary-foreground shadow-md ring-4 ring-background"
-          style={{ gridColumnStart: indiceAtivo + 1, marginTop: "-1.25rem" }}
+          style={{ gridColumnStart: indiceAtivo + 1 }}
           transition={{ type: "spring", stiffness: 380, damping: 32 }}
         >
           <AnimatePresence mode="wait">
