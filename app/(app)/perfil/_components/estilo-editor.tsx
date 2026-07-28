@@ -10,9 +10,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Checkbox } from "@/components/ui/checkbox";
-import { CartaoPerfilEstilo, type PerfilComImagem } from "@/components/mixa/cartao-perfil-estilo";
+import { SeletorEstilo, useSeletorEstilo } from "@/components/mixa/seletor-estilo";
+import type { PerfilComImagem } from "@/components/mixa/cartao-perfil-estilo";
 
 /**
  * A lista de rádio em texto virou um botão que abre modal com o mesmo
@@ -80,77 +79,28 @@ function EstiloForm({
     atualizarEstilo,
     undefined,
   );
-  const [dominante, setDominante] = useState(dominanteAtual ?? "");
-  const [complementares, setComplementares] = useState<string[]>(complementaresAtuais);
+  const { dominante, complementares, selecionarDominante, alternarComplementar } = useSeletorEstilo(
+    dominanteAtual ?? "",
+    complementaresAtuais,
+  );
 
   useEffect(() => {
     if (estado?.sucesso) aoSalvar();
   }, [estado?.sucesso, aoSalvar]);
 
-  function selecionarDominante(id: string) {
-    setDominante(id);
-    setComplementares((atual) => atual.filter((c) => c !== id));
-  }
-
-  function alternarComplementar(id: string, marcado: boolean) {
-    if (marcado) {
-      if (complementares.length >= 2) return;
-      setComplementares((atual) => [...atual, id]);
-    } else {
-      setComplementares((atual) => atual.filter((c) => c !== id));
-    }
-  }
-
   return (
     <form action={formAction} className="flex flex-col gap-6">
-      <input type="hidden" name="dominante" value={dominante} />
-      {complementares.map((id) => (
-        <input key={id} type="hidden" name="complementares" value={id} />
-      ))}
-
-      <div>
-        <p className="mb-3 text-sm font-medium">Dominante</p>
-        <RadioGroup value={dominante} onValueChange={selecionarDominante} className="grid grid-cols-2 gap-3">
-          {perfis.map((perfil) => (
-            <CartaoPerfilEstilo
-              key={perfil.id}
-              perfil={perfil}
-              selecionado={dominante === perfil.id}
-              htmlFor={`perfil-dominante-${perfil.id}`}
-              controle={<RadioGroupItem value={perfil.id} id={`perfil-dominante-${perfil.id}`} />}
-            />
-          ))}
-        </RadioGroup>
-      </div>
-
-      <div>
-        <p className="mb-3 text-sm font-medium">Complementares (até 2)</p>
-        <div className="grid grid-cols-2 gap-3">
-          {perfis
-            .filter((perfil) => perfil.id !== dominante)
-            .map((perfil) => {
-              const marcado = complementares.includes(perfil.id);
-              const bloqueado = !marcado && complementares.length >= 2;
-              return (
-                <CartaoPerfilEstilo
-                  key={perfil.id}
-                  perfil={perfil}
-                  selecionado={marcado}
-                  bloqueado={bloqueado}
-                  htmlFor={`perfil-complementar-${perfil.id}`}
-                  controle={
-                    <Checkbox
-                      id={`perfil-complementar-${perfil.id}`}
-                      checked={marcado}
-                      disabled={bloqueado}
-                      onCheckedChange={(valor) => alternarComplementar(perfil.id, valor === true)}
-                    />
-                  }
-                />
-              );
-            })}
-        </div>
-      </div>
+      <SeletorEstilo
+        perfis={perfis}
+        dominante={dominante}
+        complementares={complementares}
+        selecionarDominante={selecionarDominante}
+        alternarComplementar={alternarComplementar}
+        idPrefix="perfil"
+        tituloDominante="Dominante"
+        tituloComplementares="Complementares (até 2)"
+        classeLegenda="text-sm font-medium"
+      />
 
       {estado?.erro && <p className="text-sm text-destructive">{estado.erro}</p>}
       <Button type="submit" disabled={pending || !dominante}>

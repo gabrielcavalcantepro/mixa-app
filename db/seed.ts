@@ -27,7 +27,7 @@ async function seed() {
       cidade: "São Paulo, SP",
       cidadeLat: "-23.5505",
       cidadeLon: "-46.6333",
-      perfilDominanteId: "perfil-classica",
+      perfilDominanteId: "perfil-tradicional",
       rotinaConcluidaEm: new Date(),
       notificacaoHorario: "07:00:00",
     })

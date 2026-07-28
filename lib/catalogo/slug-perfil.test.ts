@@ -3,13 +3,13 @@ import { slugPerfil } from "./slug-perfil";
 
 describe("slugPerfil", () => {
   it("remove acentos e vira minúsculo", () => {
-    expect(slugPerfil("Clássica")).toBe("classica");
-    expect(slugPerfil("Romântica")).toBe("romantica");
+    expect(slugPerfil("Dramático urbano")).toBe("dramatico-urbano");
+    expect(slugPerfil("Romântico")).toBe("romantico");
   });
 
   it("troca espaço e barra por hífen", () => {
-    expect(slugPerfil("Descontraída/casual-chic")).toBe("descontraida-casual-chic");
-    expect(slugPerfil("Moderna/minimalista")).toBe("moderna-minimalista");
+    expect(slugPerfil("Dramático urbano")).toBe("dramatico-urbano");
+    expect(slugPerfil("Casual/chic")).toBe("casual-chic");
   });
 
   it("remove hífen nas pontas", () => {
